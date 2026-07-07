@@ -1,0 +1,1888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firebase Admin Panel</title>
+
+  <!-- ✅ Firebase SDK for Realtime Updates (NO bandwidth waste!) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', system-ui, sans-serif; 
+      background: #0f172a; 
+      color: #e2e8f0;
+      padding: 20px;
+    }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { font-size: 28px; color: #38bdf8; margin-bottom: 8px; }
+    .header p { color: #94a3b8; font-size: 14px; }
+    .refresh-btn {
+      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+      color: white;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .refresh-btn:hover { 
+      transform: scale(1.05); 
+      box-shadow: 0 4px 15px rgba(56,189,248,0.4);
+    }
+    .refresh-btn:active { transform: scale(0.95); }
+    .last-updated {
+      display: block;
+      color: #64748b;
+      font-size: 11px;
+      margin-top: 6px;
+    }
+
+    /* Skip Popup Styles */
+    .skip-popup {
+      display: none;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+      padding: 14px 24px;
+      border-radius: 12px;
+      margin: 0 auto 20px;
+      max-width: 600px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 15px;
+      box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+      animation: slideDown 0.4s ease;
+      position: relative;
+    }
+    .skip-popup.show { display: block; }
+    .skip-popup .skip-btn {
+      background: white;
+      color: #d97706;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-left: 12px;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .skip-popup .skip-btn:hover { background: #fef3c7; transform: scale(1.05); }
+    .skip-popup .close-skip {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .skip-popup .close-skip:hover { background: rgba(255,255,255,0.3); }
+    @keyframes slideDown {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Connection Status Badge */
+    .connection-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: 6px;
+      font-weight: 600;
+    }
+    .connection-badge.linked {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+    }
+    .connection-badge.waiting {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+    .connection-badge.skipped {
+      background: rgba(100, 116, 139, 0.15);
+      color: #64748b;
+    }
+
+    #chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
+    .chapter-card {
+      background: #1e293b;
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid #334155;
+      transition: transform 0.2s;
+    }
+    .chapter-card:hover { transform: translateY(-2px); border-color: #38bdf8; }
+    .chapter-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #334155;
+    }
+    .chapter-icon { font-size: 28px; }
+    .chapter-info { flex: 1; }
+    .chapter-info h3 { font-size: 16px; color: #f1f5f9; text-transform: capitalize; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .edit-btn {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .edit-btn:hover { color: #38bdf8; background: rgba(56,189,248,0.1); }
+    .chapter-name-input {
+      background: #0f172a;
+      border: 1px solid #38bdf8;
+      border-radius: 6px;
+      color: #f1f5f9;
+      padding: 4px 10px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      width: 100%;
+    }
+    .badge { 
+      display: inline-block; 
+      background: #38bdf8; 
+      color: #0f172a; 
+      padding: 2px 10px; 
+      border-radius: 20px; 
+      font-size: 11px; 
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    .count { font-size: 12px; color: #94a3b8; }
+    .items-list { display: flex; flex-direction: column; gap: 8px; }
+    .item-row {
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 12px 14px;
+      border: 1px solid #1e293b;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .item-row:hover { border-color: #475569; background: #1e293b; }
+    .item-row.pressing { 
+      background: #1e3a5f; 
+      border-color: #38bdf8; 
+      transform: scale(0.98);
+    }
+    .item-row.pressed { 
+      animation: pulse 0.3s ease;
+    }
+    .item-row.notes-paired {
+      border-left: 3px solid #22c55e;
+    }
+    .item-row.notes-waiting {
+      border-left: 3px solid #f59e0b;
+    }
+    .item-row.notes-skipped {
+      border-left: 3px solid #64748b;
+    }
+    .item-row.notes-item-row {
+      border-left: 3px solid #22c55e;
+      background: linear-gradient(90deg, rgba(34,197,94,0.05) 0%, #0f172a 100%);
+    }
+    .item-row.notes-item-row:hover {
+      border-color: #22c55e;
+      background: linear-gradient(90deg, rgba(34,197,94,0.1) 0%, #1e293b 100%);
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(0.95); }
+      100% { transform: scale(1); }
+    }
+    .video-item::after {
+      content: "⏱ Long press to move";
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      font-size: 9px;
+      color: #64748b;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .video-item:hover::after { opacity: 1; }
+    .item-title { font-size: 13px; color: #f8fafc; font-weight: 500; margin-bottom: 6px; padding-right: 60px; }
+    .item-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .subject { font-size: 11px; color: #38bdf8; background: rgba(56,189,248,0.1); padding: 2px 8px; border-radius: 12px; }
+    .date { font-size: 11px; color: #64748b; }
+
+    /* OLD TITLE STYLE */
+    .old-title-box {
+      font-size: 11px;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed #334155;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .old-title-box .old-label {
+      color: #f59e0b;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .old-title-box .old-text {
+      color: #f87171;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    /* DELETE BUTTON */
+    .delete-btn {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.2s;
+      z-index: 5;
+    }
+    .item-row:hover .delete-btn { opacity: 1; }
+    .delete-btn:hover { background: #ef4444; color: white; }
+
+    /* NOTES BUTTON */
+    .notes-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: white;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-left: 8px;
+      transition: all 0.2s;
+    }
+    .notes-btn:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
+    .notes-btn:disabled {
+      background: #334155;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .link-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #22c55e;
+      color: white;
+      text-decoration: none;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .link-btn:hover { background: #16a34a; }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-content {
+      background: #1e293b;
+      border-radius: 20px;
+      padding: 28px;
+      width: 90%;
+      max-width: 420px;
+      border: 1px solid #334155;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-content h3 { color: #38bdf8; margin-bottom: 4px; font-size: 18px; }
+    .modal-subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+
+    /* Delete Confirm Modal */
+    .delete-confirm-modal .modal-content {
+      border: 2px solid #ef4444;
+    }
+    .delete-confirm-modal .modal-content h3 {
+      color: #ef4444;
+    }
+    .btn-danger {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-secondary {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      background: #334155;
+      color: #e2e8f0;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-secondary:hover { background: #475569; }
+    .delete-warning {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 16px;
+      color: #fca5a5;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .delete-item-preview {
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    .delete-item-preview .label {
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .delete-item-preview .title {
+      font-size: 14px;
+      color: #f8fafc;
+      font-weight: 600;
+    }
+
+    /* Notes View Modal */
+    .notes-view-modal .modal-content {
+      border: 2px solid #22c55e;
+      max-width: 500px;
+    }
+    .notes-view-modal .modal-content h3 {
+      color: #22c55e;
+    }
+    .notes-item {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s;
+    }
+    .notes-item:hover { border-color: #22c55e; }
+    .notes-item .num-badge {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .notes-item .content {
+      flex: 1;
+      min-width: 0;
+    }
+    .notes-item .content .title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .notes-item .content .meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .notes-item .content .meta .subject {
+      font-size: 11px;
+      color: #38bdf8;
+      background: rgba(56,189,248,0.1);
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+    .notes-item .content .meta .date {
+      font-size: 11px;
+      color: #64748b;
+    }
+    .notes-item .open-btn {
+      background: #22c55e;
+      color: white;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .notes-item .open-btn:hover { background: #16a34a; }
+    .notes-empty {
+      text-align: center;
+      padding: 40px;
+      color: #64748b;
+    }
+    .notes-empty .icon { font-size: 48px; margin-bottom: 16px; }
+    .notes-empty .title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .notes-empty .desc { font-size: 13px; }
+
+    /* Video Info Box - Enhanced */
+    .video-info-box {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .video-info-box .label { 
+      font-size: 11px; 
+      color: #64748b; 
+      text-transform: uppercase; 
+      letter-spacing: 1px; 
+      margin-bottom: 6px; 
+    }
+    .video-info-box .title { 
+      font-size: 14px; 
+      color: #f8fafc; 
+      font-weight: 600; 
+      line-height: 1.4; 
+    }
+    .video-info-box .source-info {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed #334155;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .video-info-box .source-info .source-label {
+      color: #f59e0b;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+    .video-info-box .source-info .source-text {
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+    .video-info-box .original-info {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed #1e293b;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .video-info-box .original-info .orig-label {
+      color: #f59e0b;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .video-info-box .original-info .orig-text {
+      color: #f87171;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .moved-badge {
+      position: absolute;
+      top: -8px;
+      right: 14px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: white;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 3px 12px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .chapter-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      background: #0f172a;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      border: 1px solid #1e293b;
+      transition: all 0.2s;
+    }
+    .chapter-option:hover { background: #1e3a5f; border-color: #38bdf8; }
+    .opt-icon { font-size: 20px; }
+    .opt-name { flex: 1; font-size: 14px; color: #f1f5f9; text-transform: capitalize; }
+    .opt-count { font-size: 12px; color: #64748b; }
+    .btn-cancel {
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      background: #334155;
+      color: #e2e8f0;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-cancel:hover { background: #475569; }
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 2000;
+      transition: transform 0.4s ease;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { background: #22c55e; color: white; }
+    .toast.error { background: #ef4444; color: white; }
+    .toast.info { background: #3b82f6; color: white; }
+    /* ✅ STATS DASHBOARD */
+    .stats-dashboard {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid #334155;
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .stats-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #334155;
+    }
+    .stats-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .live-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+      animation: pulse-dot 2s infinite;
+    }
+    .live-dot.connected {
+      background: #22c55e;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+    .live-text {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-left: auto;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      background: #0f172a;
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+      border: 1px solid #1e293b;
+      transition: all 0.2s;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: #475569;
+    }
+    .stat-card.online { border-left: 3px solid #22c55e; }
+    .stat-card.today { border-left: 3px solid #38bdf8; }
+    .stat-card.peak { border-left: 3px solid #f59e0b; }
+    .stat-card.devices { border-left: 3px solid #a855f7; }
+    .stat-icon { font-size: 24px; margin-bottom: 6px; }
+    .stat-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: #f8fafc;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .users-list {
+      background: #0f172a;
+      border-radius: 14px;
+      padding: 14px;
+      border: 1px solid #1e293b;
+    }
+    .users-list-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .user-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      background: #1e293b;
+      font-size: 12px;
+    }
+    .user-row:last-child { margin-bottom: 0; }
+    .user-device { font-size: 16px; }
+    .user-info { flex: 1; }
+    .user-browser { color: #f1f5f9; font-weight: 500; }
+    .user-screen { color: #64748b; font-size: 10px; }
+    .user-time {
+      color: #22c55e;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .user-time.offline {
+      color: #ef4444;
+    }
+    @media (max-width: 768px) {
+      #chapters { grid-template-columns: 1fr; }
+      body { padding: 12px; }
+      .delete-btn { opacity: 1; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+</head>
+<body>
+
+<div id="app">
+  <div class="header">
+    <h1>📚 Firebase Admin Panel</h1>
+    <p>Long press any video to move it to another chapter</p>
+    <button class="refresh-btn" onclick="fetchData()" title="Refresh Data">🔄 Refresh</button>
+    <span class="last-updated" id="lastUpdated">Loading...</span>
+  </div>
+
+  <!-- ✅ LIVE STATS DASHBOARD -->
+  <div class="stats-dashboard" id="statsDashboard">
+    <div class="stats-header">
+      <span class="stats-title">📊 Live Website Stats</span>
+      <span class="live-dot" id="liveDot"></span>
+      <span class="live-text" id="liveText">Connecting...</span>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card online">
+        <div class="stat-icon">👥</div>
+        <div class="stat-value" id="onlineUsers">0</div>
+        <div class="stat-label">Users Online</div>
+      </div>
+      <div class="stat-card today">
+        <div class="stat-icon">📅</div>
+        <div class="stat-value" id="todayVisitors">0</div>
+        <div class="stat-label">Today Visitors</div>
+      </div>
+      <div class="stat-card peak">
+        <div class="stat-icon">🔥</div>
+        <div class="stat-value" id="peakUsers">0</div>
+        <div class="stat-label">Peak Today</div>
+      </div>
+      <div class="stat-card devices">
+        <div class="stat-icon">📱</div>
+        <div class="stat-value" id="deviceCount">0</div>
+        <div class="stat-label">Device Types</div>
+      </div>
+    </div>
+    <div class="users-list" id="usersList">
+      <div class="users-list-title">🟢 Active Users</div>
+      <div id="activeUsersList"></div>
+    </div>
+  </div>
+
+  <!-- Skip Notes Popup -->
+  <div id="skipPopup" class="skip-popup">
+    📄 <span id="skipPopupText">Notes are available for this chapter</span>
+    <button class="skip-btn" onclick="skipToNotes()">Skip to Notes ➜</button>
+    <button class="close-skip" onclick="markSkipped()" title="No notes for this video">✕</button>
+  </div>
+
+  <div id="chapters"></div>
+</div>
+
+<!-- Move Modal -->
+<div id="moveModal" class="modal">
+  <div class="modal-content">
+    <h3>📦 Move Video To Chapter</h3>
+    <p class="modal-subtitle">Select destination chapter</p>
+    <div id="selectedVideoInfo" class="video-info-box" style="display:none;">
+      <div class="moved-badge">MOVED</div>
+      <div class="label">Moving Video</div>
+      <div class="title" id="selectedVideoTitle"></div>
+      <div class="source-info" id="selectedVideoSourceInfo">
+        <span class="source-label">From:</span>
+        <span class="source-text" id="sourceText"></span>
+      </div>
+      <div class="original-info" id="selectedVideoOriginalInfo" style="display:none;">
+        <span class="orig-label">OLD title:</span>
+        <span class="orig-text" id="originalText"></span>
+      </div>
+    </div>
+    <div id="chapterList"></div>
+    <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div id="deleteModal" class="modal delete-confirm-modal">
+  <div class="modal-content">
+    <h3>🗑️ Delete Video</h3>
+    <p class="modal-subtitle">This action cannot be undone</p>
+    <div class="delete-warning">
+      ⚠️ Are you sure you want to delete this video? This will permanently remove it from Firebase.
+    </div>
+    <div class="delete-item-preview">
+      <div class="label">Video to Delete</div>
+      <div class="title" id="deleteVideoTitle">--</div>
+    </div>
+    <button class="btn-danger" onclick="confirmDelete()">🗑️ Yes, Delete Permanently</button>
+    <button class="btn-secondary" onclick="closeDeleteModal()">❌ Cancel</button>
+  </div>
+</div>
+
+<!-- Notes View Modal -->
+<div id="notesModal" class="modal notes-view-modal">
+  <div class="modal-content" style="max-width: 500px;">
+    <h3>📄 Notes</h3>
+    <p class="modal-subtitle" id="notesModalSubtitle">--</p>
+    <div id="notesList" style="max-height: 400px; overflow-y: auto;"></div>
+    <button class="btn-cancel" onclick="closeNotesModal()">Close</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const FIREBASE_URL = "https://sandeep-a3120-default-rtdb.firebaseio.com";
+let chaptersData = {};
+let longPressTimer;
+let selectedVideo = null;
+let selectedSourceChapter = null;
+let selectedVideoKey = null;
+let pendingDelete = null;
+
+// ====== STATE - ALL COMPUTED FROM FIREBASE, NO LOCALSTORAGE ======
+let skippedChapters = [];
+
+// ✅ Firebase Realtime Connection (WebSocket - NO repeated downloads!)
+let firebaseApp = null;
+let firebaseDb = null;
+let isRealtimeConnected = false;
+
+// ✅ Initialize Firebase Realtime (ONE-TIME connection, live updates forever)
+function initFirebaseRealtime() {
+  if (firebaseApp) return; // Already initialized
+
+  try {
+    // Parse database URL to get project config
+    const dbUrl = new URL(FIREBASE_URL);
+    const projectId = dbUrl.hostname.split('.')[0];
+
+    firebaseApp = firebase.initializeApp({
+      databaseURL: FIREBASE_URL
+    });
+
+    firebaseDb = firebase.database();
+
+    // 🔥 REALTIME LISTENER - WebSocket connection, NO repeated downloads!
+    firebaseDb.ref('/').on('value', (snapshot) => {
+      const newData = snapshot.val() || {};
+
+      // Only update if data actually changed
+      if (JSON.stringify(chaptersData) !== JSON.stringify(newData)) {
+        chaptersData = newData;
+        renderChapters();
+        checkForNotesPopup();
+
+        // Show update indicator
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString();
+        const lastUpdatedEl = document.getElementById('lastUpdated');
+        if (lastUpdatedEl) {
+          lastUpdatedEl.textContent = `🟢 Live | Updated: ${timeStr}`;
+        }
+
+        if (isRealtimeConnected) {
+          showToast("📡 Data updated from Firebase", "success");
+        }
+        isRealtimeConnected = true;
+      }
+    }, (error) => {
+      console.error("Firebase realtime error:", error);
+      showToast("❌ Realtime connection failed, use Refresh button", "error");
+    });
+
+    showToast("🟢 Firebase Realtime connected!", "success");
+
+  } catch (e) {
+    console.error("Firebase init error:", e);
+    showToast("❌ Failed to connect realtime, using manual refresh", "error");
+    // Fallback to manual fetch
+    fetchDataManual();
+  }
+}
+
+// ✅ Manual fetch fallback (if Firebase SDK fails)
+async function fetchDataManual() {
+  try {
+    const res = await fetch(`${FIREBASE_URL}/.json`);
+    chaptersData = await res.json();
+    renderChapters();
+    checkForNotesPopup();
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString();
+    const lastUpdatedEl = document.getElementById('lastUpdated');
+    if (lastUpdatedEl) {
+      lastUpdatedEl.textContent = `Last updated: ${timeStr}`;
+    }
+  } catch (e) {
+    showToast("❌ Failed to load data", "error");
+  }
+}
+
+// ✅ Wrapper function for refresh button
+function fetchData() {
+  if (firebaseDb) {
+    // Force refresh from Firebase
+    firebaseDb.ref('/').once('value').then((snapshot) => {
+      chaptersData = snapshot.val() || {};
+      renderChapters();
+      checkForNotesPopup();
+      showToast("🔄 Refreshed from Firebase", "success");
+    });
+  } else {
+    fetchDataManual();
+  }
+}
+
+// ====== CHECK IF NOTES ACTUALLY EXIST FOR A VIDEO CHAPTER ======
+function hasNotesChapter(videoChapterName) {
+  const baseName = getBaseName(videoChapterName);
+  const allChapters = Object.keys(chaptersData || {});
+  const matchingNotes = allChapters.find(ch => 
+    ch.includes('notes') && getBaseName(ch).toLowerCase() === baseName.toLowerCase()
+  );
+
+  if (!matchingNotes) return false;
+
+  const notesData = chaptersData[matchingNotes];
+  return notesData && Object.keys(notesData).length > 0;
+}
+
+function getNotesChapterName(videoChapterName) {
+  const baseName = getBaseName(videoChapterName);
+  const allChapters = Object.keys(chaptersData || {});
+  return allChapters.find(ch => 
+    ch.includes('notes') && getBaseName(ch).toLowerCase() === baseName.toLowerCase()
+  );
+}
+
+// ✅ NEW: Get matching video chapter for a notes chapter
+function getVideoChapterName(notesChapterName) {
+  const baseName = getBaseName(notesChapterName);
+  const allChapters = Object.keys(chaptersData || {});
+  return allChapters.find(ch => 
+    ch.includes('video') && getBaseName(ch).toLowerCase() === baseName.toLowerCase()
+  );
+}
+
+// ====== GET REAL CONNECTION COUNT (computed fresh from Firebase) ======
+function getConnectionCount(videoChapterName) {
+  const notesChapterName = getNotesChapterName(videoChapterName);
+  if (!notesChapterName) return 0;
+
+  const videoCount = getSortedKeys(videoChapterName).length;
+  const notesCount = getSortedKeys(notesChapterName).length;
+
+  return Math.min(videoCount, notesCount);
+}
+
+// ====== CHECK IF A SPECIFIC VIDEO HAS A LINKED NOTE ======
+function hasLinkedNote(videoChapterName, videoKey) {
+  const notesChapterName = getNotesChapterName(videoChapterName);
+  if (!notesChapterName) return false;
+
+  const videoKeys = getSortedKeys(videoChapterName);
+  const notesKeys = getSortedKeys(notesChapterName);
+
+  const videoIndex = videoKeys.indexOf(videoKey);
+  if (videoIndex === -1) return false;
+
+  return videoIndex < notesKeys.length;
+}
+
+// ====== GET THE LINKED NOTE KEY AND DATA ======
+function getSortedKeys(chapterName) {
+  return Object.keys(chaptersData[chapterName] || {}).sort((a, b) => {
+    const numA = parseInt(a.match(/\d+/)?.[0] || 0);
+    const numB = parseInt(b.match(/\d+/)?.[0] || 0);
+    return numA - numB;
+  });
+}
+
+function getLinkedNote(videoChapterName, videoKey) {
+  const notesChapterName = getNotesChapterName(videoChapterName);
+  if (!notesChapterName) return null;
+
+  const videoKeys = getSortedKeys(videoChapterName);
+  const notesKeys = getSortedKeys(notesChapterName);
+
+  const videoIndex = videoKeys.indexOf(videoKey);
+  if (videoIndex === -1 || videoIndex >= notesKeys.length) return null;
+
+  const noteKey = notesKeys[videoIndex];
+  const noteData = chaptersData[notesChapterName][noteKey];
+
+  return {
+    noteKey: noteKey,
+    noteData: noteData,
+    sourceNotesChapter: notesChapterName
+  };
+}
+
+// ====== SKIP POPUP LOGIC ======
+
+function checkForNotesPopup() {
+  const popup = document.getElementById('skipPopup');
+  popup.classList.remove('show');
+
+  const videoChapters = Object.keys(chaptersData || {}).filter(c => c.includes('video'));
+
+  for (const videoCh of videoChapters) {
+    if (skippedChapters.includes(videoCh)) continue;
+
+    const notesExist = hasNotesChapter(videoCh);
+
+    if (notesExist) {
+      const notesChapterName = getNotesChapterName(videoCh);
+
+      const popupText = document.getElementById('skipPopupText');
+      popupText.textContent = `📄 "${notesChapterName}" is ready. Skip to notes?`;
+      popup.classList.add('show');
+
+      popup.dataset.forChapter = videoCh;
+      popup.dataset.notesChapter = notesChapterName;
+      return;
+    }
+  }
+}
+
+function skipToNotes() {
+  const popup = document.getElementById('skipPopup');
+  const notesChapter = popup.dataset.notesChapter;
+
+  if (notesChapter) {
+    const notesCard = document.querySelector(`[data-chapter-name="${notesChapter}"]`);
+    if (notesCard) {
+      notesCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      notesCard.style.borderColor = '#f59e0b';
+      notesCard.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.3)';
+      setTimeout(() => {
+        notesCard.style.borderColor = '#334155';
+        notesCard.style.boxShadow = 'none';
+      }, 2000);
+    }
+  }
+  closeSkipPopup();
+}
+
+function markSkipped() {
+  const popup = document.getElementById('skipPopup');
+  const videoChapter = popup.dataset.forChapter;
+
+  if (videoChapter) {
+    if (!skippedChapters.includes(videoChapter)) {
+      skippedChapters.push(videoChapter);
+    }
+
+    showToast(`🚫 "${videoChapter}" marked: No notes coming`, "info");
+  }
+
+  closeSkipPopup();
+  renderChapters();
+}
+
+function closeSkipPopup() {
+  const popup = document.getElementById('skipPopup');
+  popup.classList.remove('show');
+  delete popup.dataset.forChapter;
+  delete popup.dataset.notesChapter;
+}
+
+// ====== RENDER ======
+
+function renderChapters() {
+  const container = document.getElementById('chapters');
+  container.innerHTML = '';
+
+  // ✅ Render ALL chapters - VIDEO and NOTES both visible
+  const allChapters = Object.entries(chaptersData || {}).filter(([name]) => 
+    name.includes('video') || name.includes('notes')
+  );
+
+  allChapters.forEach(([chapterName, chapterData]) => {
+    const isVideo = chapterName.includes('video');
+    const isNotes = chapterName.includes('notes');
+    const icon = isVideo ? '🎬' : '📄';
+    const type = isVideo ? 'Videos' : 'Notes';
+
+    const items = Object.entries(chapterData || {}).map(([key, item]) => ({
+      key, ...item
+    }));
+
+    let connectionBadge = '';
+    let actionButton = '';
+
+    if (isVideo) {
+      // Video chapter logic
+      const notesExist = hasNotesChapter(chapterName);
+      const isSkipped = skippedChapters.includes(chapterName);
+
+      if (notesExist) {
+        const count = getConnectionCount(chapterName);
+        connectionBadge = `<span class="connection-badge linked">🔗 ${count} linked</span>`;
+      } else if (isSkipped) {
+        connectionBadge = `<span class="connection-badge skipped">🚫 skipped</span>`;
+      } else {
+        connectionBadge = `<span class="connection-badge waiting">⏳ waiting</span>`;
+      }
+
+      actionButton = notesExist 
+        ? `<button class="notes-btn" onclick="openNotesModal('${chapterName}')" title="View Notes">📄 Notes</button>`
+        : `<button class="notes-btn" disabled title="No notes available">📄 Notes</button>`;
+    } else {
+      // Notes chapter logic - show linked video count
+      const videoChapterName = getVideoChapterName(chapterName);
+      if (videoChapterName) {
+        const count = getConnectionCount(videoChapterName);
+        connectionBadge = `<span class="connection-badge linked">🔗 ${count} linked</span>`;
+      }
+      actionButton = `<button class="notes-btn" onclick="openNotesModal('${chapterName}')" title="View Notes">👁️ View</button>`;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'chapter-card';
+    card.setAttribute('data-chapter-name', chapterName);
+    card.innerHTML = `
+      <div class="chapter-header">
+        <span class="chapter-icon">${icon}</span>
+        <div class="chapter-info">
+          <h3>
+            <span id="title-${chapterName}">${chapterName}</span>
+            ${connectionBadge}
+            <button class="edit-btn" onclick="startEditChapter('${chapterName}')" title="Rename Chapter">✏️</button>
+          </h3>
+          <span class="badge">${type}</span>
+          <span class="count">${items.length} items</span>
+          ${actionButton}
+        </div>
+      </div>
+      <div class="items-list">
+        ${items.map((item, index) => {
+          let extraClass = '';
+          let notesIndicator = '';
+          let longPressAttrs = '';
+
+          if (isVideo) {
+            // Video item logic
+            const hasLink = hasLinkedNote(chapterName, item.key);
+
+            if (hasLink) {
+              extraClass = 'notes-paired';
+              notesIndicator = '<span style="font-size:10px;color:#22c55e;margin-left:6px;">📄 linked</span>';
+            } else if (skippedChapters.includes(chapterName)) {
+              extraClass = 'notes-skipped';
+            } else {
+              extraClass = 'notes-waiting';
+            }
+
+            longPressAttrs = `onmousedown="startLongPress(this, '${chapterName}', '${item.key}')"
+               ontouchstart="startLongPress(this, '${chapterName}', '${item.key}')"
+               onmouseup="cancelLongPress()"
+               onmouseleave="cancelLongPress()"
+               ontouchend="cancelLongPress()"
+               ontouchmove="cancelLongPress()"`;
+          } else {
+            // Notes item logic - green border
+            extraClass = 'notes-item-row';
+          }
+
+          // OLD TITLE DISPLAY
+          const oldTitleHtml = (item.originalTitle && item.originalTitle !== item.title) ? `
+            <div class="old-title-box">
+              <span class="old-label">OLD title:</span>
+              <span class="old-text">${item.originalTitle}</span>
+            </div>
+          ` : '';
+
+          // DELETE BUTTON
+          const deleteBtnHtml = `
+            <button class="delete-btn" onclick="openDeleteModal('${chapterName}', '${item.key}', event)" title="Delete ${isVideo ? 'Video' : 'Note'}">🗑️</button>
+          `;
+
+          return `
+          <div class="item-row ${isVideo ? 'video-item' : ''} ${extraClass}" 
+               data-chapter="${chapterName}" 
+               data-key="${item.key}"
+               data-index="${index}"
+               ${longPressAttrs}>
+            ${deleteBtnHtml}
+            <div class="item-title">${item.title}${notesIndicator}</div>
+            <div class="item-meta">
+              <span class="subject">${item.subject}</span>
+              <span class="date">${item.date}</span>
+            </div>
+            ${oldTitleHtml}
+            <a href="${item.url}" target="_blank" class="link-btn" onclick="event.stopPropagation()">Open ↗</a>
+          </div>
+        `}).join('')}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// ====== DELETE FUNCTIONS ======
+
+function openDeleteModal(chapterName, itemKey, event) {
+  if (event) event.stopPropagation();
+
+  const item = chaptersData[chapterName] && chaptersData[chapterName][itemKey];
+  if (!item) return;
+
+  pendingDelete = { chapter: chapterName, key: itemKey, item: item };
+
+  document.getElementById('deleteVideoTitle').textContent = item.title || 'Untitled Video';
+  document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').style.display = 'none';
+  pendingDelete = null;
+}
+
+async function confirmDelete() {
+  if (!pendingDelete) {
+    closeDeleteModal();
+    return;
+  }
+
+  const { chapter, key, item } = pendingDelete;
+
+  try {
+    // Check if this video has a linked note - if yes, delete that too
+    const linkedNote = getLinkedNote(chapter, key);
+
+    // Check if this is the last item in the chapter
+    const chapterItems = Object.keys(chaptersData[chapter] || {});
+    const isLastItem = chapterItems.length === 1 && chapterItems[0] === key;
+
+    if (isLastItem) {
+      // ✅ Keep chapter alive by setting empty object instead of DELETE
+      await fetch(`${FIREBASE_URL}/${chapter}.json`, {
+        method: 'PUT',
+        body: JSON.stringify({})
+      });
+      if (chaptersData[chapter]) {
+        chaptersData[chapter] = {};
+      }
+    } else {
+      // Normal item deletion
+      await fetch(`${FIREBASE_URL}/${chapter}/${key}.json`, {
+        method: 'DELETE'
+      });
+      if (chaptersData[chapter]) {
+        delete chaptersData[chapter][key];
+      }
+    }
+
+    // If linked note exists, delete it too
+    if (linkedNote) {
+      const notesChapter = linkedNote.sourceNotesChapter;
+      const noteItems = Object.keys(chaptersData[notesChapter] || {});
+      const isLastNote = noteItems.length === 1 && noteItems[0] === linkedNote.noteKey;
+
+      if (isLastNote) {
+        // ✅ Keep notes chapter alive
+        await fetch(`${FIREBASE_URL}/${notesChapter}.json`, {
+          method: 'PUT',
+          body: JSON.stringify({})
+        });
+        if (chaptersData[notesChapter]) {
+          chaptersData[notesChapter] = {};
+        }
+      } else {
+        await fetch(`${FIREBASE_URL}/${notesChapter}/${linkedNote.noteKey}.json`, {
+          method: 'DELETE'
+        });
+        if (chaptersData[notesChapter]) {
+          delete chaptersData[notesChapter][linkedNote.noteKey];
+        }
+      }
+    }
+
+    renderChapters();
+    showToast(`🗑️ "${item.title}" deleted successfully`, "success");
+
+  } catch (e) {
+    console.error(e);
+    showToast("❌ Failed to delete video", "error");
+  } finally {
+    closeDeleteModal();
+  }
+}
+
+// ====== NOTES VIEW FUNCTIONS ======
+
+function openNotesModal(videoChapterName) {
+  const modal = document.getElementById('notesModal');
+  const list = document.getElementById('notesList');
+  const subtitle = document.getElementById('notesModalSubtitle');
+
+  const notesChapterName = getNotesChapterName(videoChapterName);
+  subtitle.textContent = notesChapterName || videoChapterName;
+
+  if (!notesChapterName || !chaptersData[notesChapterName]) {
+    list.innerHTML = `
+      <div class="notes-empty">
+        <div class="icon">📭</div>
+        <div class="title">No Notes Found</div>
+        <div class="desc">No notes available for this chapter yet.</div>
+      </div>
+    `;
+    modal.style.display = 'flex';
+    return;
+  }
+
+  const notesItems = Object.entries(chaptersData[notesChapterName] || {}).map(([key, item]) => ({
+    key, ...item
+  }));
+
+  if (notesItems.length === 0) {
+    list.innerHTML = `
+      <div class="notes-empty">
+        <div class="icon">📭</div>
+        <div class="title">No Notes Items</div>
+        <div class="desc">Notes chapter exists but has no items.</div>
+      </div>
+    `;
+    modal.style.display = 'flex';
+    return;
+  }
+
+  list.innerHTML = notesItems.map((item, index) => `
+    <div class="notes-item">
+      <div class="num-badge">${index + 1}</div>
+      <div class="content">
+        <div class="title">${item.title || 'Untitled'}</div>
+        <div class="meta">
+          <span class="subject">${item.subject || 'General'}</span>
+          <span class="date">${item.date || 'No date'}</span>
+        </div>
+      </div>
+      <a href="${item.url}" target="_blank" class="open-btn">Open ↗</a>
+    </div>
+  `).join('');
+
+  modal.style.display = 'flex';
+}
+
+function closeNotesModal() {
+  document.getElementById('notesModal').style.display = 'none';
+}
+
+function startEditChapter(oldName) {
+  const titleSpan = document.getElementById(`title-${oldName}`);
+  const currentName = titleSpan.textContent;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentName;
+  input.className = 'chapter-name-input';
+
+  titleSpan.parentNode.replaceChild(input, titleSpan);
+  input.focus();
+  input.select();
+
+  function save() {
+    const newName = input.value.trim();
+    if (newName && newName !== oldName) {
+      renameChapter(oldName, newName);
+    } else {
+      const span = document.createElement('span');
+      span.id = `title-${oldName}`;
+      span.textContent = oldName;
+      input.parentNode.replaceChild(span, input);
+      const h3 = span.parentNode;
+      if (!h3.querySelector('.edit-btn')) {
+        const btn = document.createElement('button');
+        btn.className = 'edit-btn';
+        btn.innerHTML = '✏️';
+        btn.title = 'Rename Chapter';
+        btn.onclick = () => startEditChapter(oldName);
+        h3.appendChild(btn);
+      }
+    }
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      save();
+    } else if (e.key === 'Escape') {
+      input.value = oldName;
+      save();
+    }
+  });
+
+  input.addEventListener('blur', save);
+}
+
+function getBaseName(chapterName) {
+  return chapterName
+    .replace(/\s*video\s*$/i, '')
+    .replace(/\s*notes\s*$/i, '')
+    .replace(/\s*dpp\s*$/i, '')
+    .replace(/\s*practice\s*$/i, '')
+    .trim();
+}
+
+function generateTitle(baseName, index, isVideo, isNotes) {
+  const num = String(index).padStart(2, '0');
+  if (isVideo) {
+    return `${baseName} ${num}`;
+  } else if (isNotes) {
+    return `${baseName} ${num} Class Notes`;
+  }
+  return `${baseName} ${num}`;
+}
+
+async function renameChapter(oldName, newName) {
+  try {
+    const isVideo = oldName.includes('video');
+    const isNotes = oldName.includes('notes');
+    const newIsVideo = newName.includes('video');
+    const newIsNotes = newName.includes('notes');
+
+    const baseName = getBaseName(newName);
+
+    const updatedData = {};
+    const items = chaptersData[oldName];
+    let index = 1;
+
+    Object.entries(items).forEach(([key, item]) => {
+      const newTitle = generateTitle(baseName, index, newIsVideo, newIsNotes);
+      updatedData[key] = {
+        ...item,
+        title: newTitle
+      };
+      index++;
+    });
+
+    await fetch(`${FIREBASE_URL}/${newName}.json`, {
+      method: 'PUT',
+      body: JSON.stringify(updatedData)
+    });
+
+    await fetch(`${FIREBASE_URL}/${oldName}.json`, {
+      method: 'DELETE'
+    });
+
+    chaptersData[newName] = updatedData;
+    delete chaptersData[oldName];
+
+    renderChapters();
+    showToast(`✅ Chapter renamed & titles updated!`, "success");
+
+  } catch (e) {
+    showToast("❌ Failed to rename chapter", "error");
+  }
+}
+
+function startLongPress(el, chapter, key) {
+  if (!chapter.includes('video')) return;
+
+  el.classList.add('pressing');
+  selectedVideo = chaptersData[chapter][key];
+  selectedSourceChapter = chapter;
+  selectedVideoKey = key;
+
+  longPressTimer = setTimeout(() => {
+    el.classList.remove('pressing');
+    el.classList.add('pressed');
+    setTimeout(() => el.classList.remove('pressed'), 300);
+    openMoveModal(chapter, key);
+  }, 800);
+}
+
+function cancelLongPress() {
+  clearTimeout(longPressTimer);
+  document.querySelectorAll('.pressing').forEach(el => el.classList.remove('pressing'));
+}
+
+function openMoveModal(sourceChapter, videoKey) {
+  const modal = document.getElementById('moveModal');
+  const list = document.getElementById('chapterList');
+  const infoBox = document.getElementById('selectedVideoInfo');
+  const titleEl = document.getElementById('selectedVideoTitle');
+  const sourceInfoBox = document.getElementById('selectedVideoSourceInfo');
+  const sourceText = document.getElementById('sourceText');
+  const originalInfoBox = document.getElementById('selectedVideoOriginalInfo');
+  const originalText = document.getElementById('originalText');
+
+  if (selectedVideo && selectedVideo.title) {
+    titleEl.textContent = selectedVideo.title;
+
+    const currentSourceName = getBaseName(selectedSourceChapter);
+    sourceText.textContent = currentSourceName;
+    sourceInfoBox.style.display = 'flex';
+
+    const originalTitle = selectedVideo.originalTitle || selectedVideo.title;
+    if (originalTitle && originalTitle !== selectedVideo.title) {
+      originalText.innerHTML = `<span style="color:#f87171;">${originalTitle}</span>`;
+      originalInfoBox.style.display = 'flex';
+    } else {
+      originalText.textContent = originalTitle;
+      originalInfoBox.style.display = 'flex';
+    }
+
+    infoBox.style.display = 'block';
+  } else {
+    infoBox.style.display = 'none';
+  }
+
+  const allChapters = Object.keys(chaptersData || {}).filter(c => c !== sourceChapter && c.includes('video'));
+
+  list.innerHTML = allChapters.map(ch => {
+    const isVideo = ch.includes('video');
+    const icon = isVideo ? '🎬' : '📁';
+    const itemCount = Object.keys(chaptersData[ch] || {}).length;
+    return `
+      <div class="chapter-option" onclick="moveVideo('${sourceChapter}', '${videoKey}', '${ch}')">
+        <span class="opt-icon">${icon}</span>
+        <span class="opt-name">${ch}</span>
+        <span class="opt-count">${itemCount} videos</span>
+      </div>
+    `;
+  }).join('');
+
+  modal.style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('moveModal').style.display = 'none';
+  document.getElementById('selectedVideoInfo').style.display = 'none';
+  selectedVideo = null;
+  selectedSourceChapter = null;
+  selectedVideoKey = null;
+}
+
+function getMatchingNotesChapter(videoChapterName) {
+  const baseName = getBaseName(videoChapterName);
+  const allChapters = Object.keys(chaptersData || {});
+  return allChapters.find(ch => 
+    ch.includes('notes') && getBaseName(ch).toLowerCase() === baseName.toLowerCase()
+  );
+}
+
+// ====== FIX: Generate truly unique key that never conflicts ======
+function generateUniqueKey(chapterName, prefix) {
+  const existingKeys = Object.keys(chaptersData[chapterName] || {});
+  let maxNum = 0;
+
+  existingKeys.forEach(key => {
+    const match = key.match(new RegExp(`^${prefix}\s*(\d+)$`, 'i'));
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  });
+
+  return `${prefix} ${maxNum + 1}`;
+}
+
+// ====== FIX: Check if key already exists in destination ======
+function keyExists(chapterName, key) {
+  return chaptersData[chapterName] && chaptersData[chapterName][key] !== undefined;
+}
+
+async function moveVideo(fromChapter, videoKey, toChapter) {
+  const video = chaptersData[fromChapter] && chaptersData[fromChapter][videoKey];
+  if (!video) {
+    showToast("❌ Video not found in source chapter", "error");
+    return;
+  }
+
+  closeModal();
+
+  try {
+    // ====== STEP 1: FIND THE LINKED NOTE BEFORE ANYTHING ELSE ======
+    const linkedNote = getLinkedNote(fromChapter, videoKey);
+
+    // ====== STEP 2: SAVE ORIGINAL TITLE (only if not already saved) ======
+    const originalTitle = video.originalTitle || video.title;
+
+    // ====== STEP 3: GENERATE UNIQUE KEY FOR DESTINATION ======
+    const destBaseName = getBaseName(toChapter);
+    const isDestVideo = toChapter.includes('video');
+
+    const prefix = isDestVideo ? 'video' : 'item';
+    let newVideoKey = generateUniqueKey(toChapter, prefix);
+
+    // DOUBLE CHECK: If key somehow still exists, keep incrementing
+    while (keyExists(toChapter, newVideoKey)) {
+      const numMatch = newVideoKey.match(/\d+/);
+      const num = numMatch ? parseInt(numMatch[0], 10) : 1;
+      newVideoKey = `${prefix} ${num + 1}`;
+    }
+
+    // Generate title based on the new key number
+    const keyNumMatch = newVideoKey.match(/\d+/);
+    const keyNum = keyNumMatch ? parseInt(keyNumMatch[0], 10) : 1;
+    const newTitle = generateTitle(destBaseName, keyNum, isDestVideo, false);
+
+    // Store original title permanently - never overwrite if already exists
+    const updatedVideo = {
+      ...video,
+      title: newTitle,
+      originalTitle: originalTitle
+    };
+
+    // ====== STEP 4: ADD TO DESTINATION FIRST (using PATCH to be safe) ======
+    const patchBody = {};
+    patchBody[newVideoKey] = updatedVideo;
+
+    await fetch(`${FIREBASE_URL}/${toChapter}.json`, {
+      method: 'PATCH',
+      body: JSON.stringify(patchBody)
+    });
+
+    // Update local state for destination
+    if (!chaptersData[toChapter]) chaptersData[toChapter] = {};
+    chaptersData[toChapter][newVideoKey] = updatedVideo;
+
+    // ====== STEP 5: DELETE FROM SOURCE (only after successful add) ======
+    const sourceVideoItems = Object.keys(chaptersData[fromChapter] || {});
+    const isLastSourceVideo = sourceVideoItems.length === 1 && sourceVideoItems[0] === videoKey;
+
+    if (isLastSourceVideo) {
+      // ✅ Keep source chapter alive
+      await fetch(`${FIREBASE_URL}/${fromChapter}.json`, {
+        method: 'PUT',
+        body: JSON.stringify({})
+      });
+      chaptersData[fromChapter] = {};
+    } else {
+      await fetch(`${FIREBASE_URL}/${fromChapter}/${videoKey}.json`, {
+        method: 'DELETE'
+      });
+      delete chaptersData[fromChapter][videoKey];
+    }
+
+    // ====== STEP 6: MOVE THE LINKED NOTE (if exists) ======
+    let notesMoved = false;
+
+    if (linkedNote && linkedNote.noteData) {
+      const destNotesChapter = getMatchingNotesChapter(toChapter);
+
+      if (destNotesChapter) {
+        // Generate unique key for note
+        let newNoteKey = generateUniqueKey(destNotesChapter, 'notes');
+
+        // DOUBLE CHECK for notes too
+        while (keyExists(destNotesChapter, newNoteKey)) {
+          const numMatch = newNoteKey.match(/\d+/);
+          const num = numMatch ? parseInt(numMatch[0], 10) : 1;
+          newNoteKey = `notes ${num + 1}`;
+        }
+
+        const noteKeyNumMatch = newNoteKey.match(/\d+/);
+        const noteKeyNum = noteKeyNumMatch ? parseInt(noteKeyNumMatch[0], 10) : 1;
+
+        const destNotesBaseName = getBaseName(destNotesChapter);
+        const newNoteTitle = generateTitle(destNotesBaseName, noteKeyNum, false, true);
+
+        const updatedNote = {
+          ...linkedNote.noteData,
+          title: newNoteTitle
+        };
+
+        // Add note to destination using PATCH
+        const notePatchBody = {};
+        notePatchBody[newNoteKey] = updatedNote;
+
+        await fetch(`${FIREBASE_URL}/${destNotesChapter}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify(notePatchBody)
+        });
+
+        // Update local state for destination notes
+        if (!chaptersData[destNotesChapter]) chaptersData[destNotesChapter] = {};
+        chaptersData[destNotesChapter][newNoteKey] = updatedNote;
+
+        // Delete note from source
+        await fetch(`${FIREBASE_URL}/${linkedNote.sourceNotesChapter}/${linkedNote.noteKey}.json`, {
+          method: 'DELETE'
+        });
+
+        // Update local state for source notes
+        delete chaptersData[linkedNote.sourceNotesChapter][linkedNote.noteKey];
+
+        notesMoved = true;
+      }
+    }
+
+    renderChapters();
+
+    if (notesMoved) {
+      showToast(`✅ Video & Linked Notes moved to "${toChapter}"`, "success");
+    } else {
+      showToast(`✅ Video moved to "${toChapter}" as "${newTitle}"`, "success");
+    }
+
+  } catch (e) {
+    console.error(e);
+    showToast("❌ Failed to move video: " + e.message, "error");
+    fetchData();
+  }
+}
+
+// ✅ LIVE STATS FUNCTIONS
+let statsListener = null;
+let liveUsersListener = null;
+
+function initLiveStats() {
+  if (!firebaseDb) {
+    console.log("Firebase not ready for stats");
+    return;
+  }
+
+  // Listen to liveUsers
+  liveUsersListener = firebaseDb.ref('liveUsers').on('value', (snapshot) => {
+    const users = snapshot.val() || {};
+    updateLiveUsers(users);
+  });
+
+  // Listen to stats
+  statsListener = firebaseDb.ref('stats').on('value', (snapshot) => {
+    const stats = snapshot.val() || {};
+    updateStats(stats);
+  });
+}
+
+function updateLiveUsers(users) {
+  const userList = Object.entries(users);
+  const now = Date.now();
+  const activeThreshold = 2 * 60 * 1000; // 2 minutes
+
+  // Filter active users (seen in last 2 minutes)
+  const activeUsers = userList.filter(([id, data]) => {
+    return (now - data.lastSeen) < activeThreshold;
+  });
+
+  // Update counters
+  document.getElementById('onlineUsers').textContent = activeUsers.length;
+
+  // Update device count
+  const devices = new Set(activeUsers.map(([id, data]) => data.device));
+  document.getElementById('deviceCount').textContent = devices.size;
+
+  // Update live indicator
+  const dot = document.getElementById('liveDot');
+  const text = document.getElementById('liveText');
+  if (activeUsers.length > 0) {
+    dot.classList.add('connected');
+    text.textContent = `${activeUsers.length} online now`;
+  } else {
+    dot.classList.remove('connected');
+    text.textContent = 'No users online';
+  }
+
+  // Update users list
+  const listContainer = document.getElementById('activeUsersList');
+  if (activeUsers.length === 0) {
+    listContainer.innerHTML = '<div style="color:#64748b;font-size:12px;text-align:center;padding:10px;">No active users</div>';
+  } else {
+    listContainer.innerHTML = activeUsers.map(([id, data]) => {
+      const timeAgo = getTimeAgo(data.lastSeen);
+      const deviceIcon = getDeviceIcon(data.device);
+      return `
+        <div class="user-row">
+          <span class="user-device">${deviceIcon}</span>
+          <div class="user-info">
+            <div class="user-browser">${data.browser} on ${data.device}</div>
+            <div class="user-screen">${data.screen}</div>
+          </div>
+          <span class="user-time">${timeAgo}</span>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+function updateStats(stats) {
+  // Get today's key (matches your format: "Wed_Jul_08_2026")
+  const today = new Date();
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const todayKey = `${days[today.getDay()]}_${months[today.getMonth()]}_${String(today.getDate()).padStart(2, '0')}_${today.getFullYear()}`;
+
+  const todayStats = stats[todayKey];
+
+  if (todayStats) {
+    const uniqueCount = todayStats.uniqueUsers ? Object.keys(todayStats.uniqueUsers).length : 0;
+    document.getElementById('todayVisitors').textContent = uniqueCount;
+    document.getElementById('peakUsers').textContent = todayStats.peakUsers || 0;
+  } else {
+    document.getElementById('todayVisitors').textContent = '0';
+    document.getElementById('peakUsers').textContent = '0';
+  }
+}
+
+function getTimeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ago`;
+}
+
+function getDeviceIcon(device) {
+  const icons = {
+    'Desktop': '💻',
+    'Mobile': '📱',
+    'Tablet': '📲'
+  };
+  return icons[device] || '📱';
+}
+
+function showToast(msg, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+window.onclick = function(e) {
+  const modal = document.getElementById('moveModal');
+  const deleteModal = document.getElementById('deleteModal');
+  const notesModal = document.getElementById('notesModal');
+  if (e.target === modal) closeModal();
+  if (e.target === deleteModal) closeDeleteModal();
+  if (e.target === notesModal) closeNotesModal();
+}
+
+// ✅ Firebase Realtime - WebSocket connection, live updates without repeated downloads!
+initFirebaseRealtime();
+
+// ✅ Start Live Stats monitoring
+initLiveStats();
+
+// Manual refresh button still works as backup
+</script>
+
+</body>
+</html>
