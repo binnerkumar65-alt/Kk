@@ -128,13 +128,14 @@
     .live-dot.connected { background: #22c55e; }
     @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
     .live-text { font-size: 12px; color: #94a3b8; margin-left: auto; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 16px; }
     .stat-card { background: #0f172a; border-radius: 14px; padding: 16px; text-align: center; border: 1px solid #1e293b; transition: all 0.2s; }
     .stat-card:hover { transform: translateY(-2px); border-color: #475569; }
     .stat-card.online { border-left: 3px solid #22c55e; }
     .stat-card.today { border-left: 3px solid #38bdf8; }
     .stat-card.peak { border-left: 3px solid #f59e0b; }
     .stat-card.devices { border-left: 3px solid #a855f7; }
+    .stat-card.daily { border-left: 3px solid #f472b6; }
     .stat-icon { font-size: 24px; margin-bottom: 6px; }
     .stat-value { font-size: 28px; font-weight: 800; color: #f8fafc; line-height: 1; }
     .stat-label { font-size: 11px; color: #94a3b8; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -288,6 +289,11 @@
         <div class="stat-icon">📱</div>
         <div class="stat-value" id="deviceCount">0</div>
         <div class="stat-label">Device Types</div>
+      </div>
+      <div class="stat-card daily" style="border-left:3px solid #a855f7;">
+        <div class="stat-icon">🌐</div>
+        <div class="stat-value" id="dailyVisitors">0</div>
+        <div class="stat-label">Daily Unique</div>
       </div>
     </div>
     <div class="heartbeat-section">
@@ -448,8 +454,8 @@
 <div id="toast" class="toast"></div>
 
 <script>
-const FIREBASE_URL = "https://sandeep-a3120-default-rtdb.firebaseio.com";
-const FIREBASE_ACTIVE_USERS_URL = "https://active-user-f2236-default-rtdb.firebaseio.com";
+const FIREBASE_URL = "https://neetjee-ca8f5-default-rtdb.firebaseio.com";
+const FIREBASE_ACTIVE_USERS_URL = "https://neetclass2-9108d-default-rtdb.firebaseio.com";
 let chaptersData = {};
 let longPressTimer;
 let selectedVideo = null;
@@ -1099,12 +1105,15 @@ async function moveVideo(fromChapter, videoKey, toChapter) {
 
 let statsPollInterval = null;
 let heartbeatPollInterval = null;
+let dailyVisitorsPollInterval = null;
 
 function initLiveStats() {
   console.log("[Stats] Starting live stats...");
   fetchActiveUsersREST();
+  fetchDailyVisitorsREST();
   fetchHeartbeatREST();
   statsPollInterval = setInterval(fetchActiveUsersREST, 10000);
+  dailyVisitorsPollInterval = setInterval(fetchDailyVisitorsREST, 30000);
   heartbeatPollInterval = setInterval(fetchHeartbeatREST, 30000);
 }
 
@@ -1140,6 +1149,31 @@ async function fetchActiveUsersREST() {
   } catch (e) {
     console.error("[REST] Fetch error:", e.name, e.message);
     document.getElementById("liveText").textContent = "❌ Fetch failed";
+  }
+}
+
+async function fetchDailyVisitorsREST() {
+  try {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    const todayKey = y + '-' + m + '-' + d;
+
+    const url = FIREBASE_ACTIVE_USERS_URL + "/dailyVisitors/" + todayKey + "/count.json";
+    console.log("[DailyVisitors] Fetching:", url);
+    const res = await fetch(url, { referrerPolicy: "no-referrer" });
+    if (!res.ok) {
+      console.error("[DailyVisitors] HTTP error:", res.status);
+      document.getElementById("dailyVisitors").textContent = "0";
+      return;
+    }
+    const count = await res.json();
+    console.log("[DailyVisitors] Count:", count);
+    document.getElementById("dailyVisitors").textContent = count || 0;
+  } catch (e) {
+    console.error("[DailyVisitors] Fetch error:", e.message);
+    document.getElementById("dailyVisitors").textContent = "0";
   }
 }
 
