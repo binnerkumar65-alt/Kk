@@ -3,746 +3,251 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.firebaseio.com https://*.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src 'self' https: wss:; font-src 'self' https:;">
+  <meta name="referrer" content="no-referrer-when-downgrade">
   <title>Firebase Admin Panel</title>
-
-  <!-- ✅ Firebase SDK for Realtime Updates (NO bandwidth waste!) -->
+  <base target="_blank">
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: 'Segoe UI', system-ui, sans-serif; 
-      background: #0f172a; 
-      color: #e2e8f0;
-      padding: 20px;
-    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
     .header { text-align: center; margin-bottom: 20px; }
     .header h1 { font-size: 28px; color: #38bdf8; margin-bottom: 8px; }
     .header p { color: #94a3b8; font-size: 14px; }
-    .refresh-btn {
-      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
-      color: white;
-      border: none;
-      padding: 8px 20px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 12px;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .refresh-btn:hover { 
-      transform: scale(1.05); 
-      box-shadow: 0 4px 15px rgba(56,189,248,0.4);
-    }
+    .refresh-btn { background: linear-gradient(135deg, #38bdf8, #0ea5e9); color: white; border: none; padding: 8px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 12px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .refresh-btn:hover { transform: scale(1.05); box-shadow: 0 4px 15px rgba(56,189,248,0.4); }
     .refresh-btn:active { transform: scale(0.95); }
-    .last-updated {
-      display: block;
-      color: #64748b;
-      font-size: 11px;
-      margin-top: 6px;
-    }
-
-    /* Skip Popup Styles */
-    .skip-popup {
-      display: none;
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-      color: white;
-      padding: 14px 24px;
-      border-radius: 12px;
-      margin: 0 auto 20px;
-      max-width: 600px;
-      text-align: center;
-      font-weight: 600;
-      font-size: 15px;
-      box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
-      animation: slideDown 0.4s ease;
-      position: relative;
-    }
+    .last-updated { display: block; color: #64748b; font-size: 11px; margin-top: 6px; }
+    .skip-popup { display: none; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 14px 24px; border-radius: 12px; margin: 0 auto 20px; max-width: 600px; text-align: center; font-weight: 600; font-size: 15px; box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3); animation: slideDown 0.4s ease; position: relative; }
     .skip-popup.show { display: block; }
-    .skip-popup .skip-btn {
-      background: white;
-      color: #d97706;
-      border: none;
-      padding: 6px 16px;
-      border-radius: 8px;
-      font-weight: 700;
-      cursor: pointer;
-      margin-left: 12px;
-      font-size: 13px;
-      transition: all 0.2s;
-    }
+    .skip-popup .skip-btn { background: white; color: #d97706; border: none; padding: 6px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; margin-left: 12px; font-size: 13px; transition: all 0.2s; }
     .skip-popup .skip-btn:hover { background: #fef3c7; transform: scale(1.05); }
-    .skip-popup .close-skip {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(255,255,255,0.2);
-      border: none;
-      color: white;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+    .skip-popup .close-skip { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
     .skip-popup .close-skip:hover { background: rgba(255,255,255,0.3); }
-    @keyframes slideDown {
-      from { transform: translateY(-20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-
-    /* Connection Status Badge */
-    .connection-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      margin-left: 6px;
-      font-weight: 600;
-    }
-    .connection-badge.linked {
-      background: rgba(34, 197, 94, 0.15);
-      color: #22c55e;
-    }
-    .connection-badge.waiting {
-      background: rgba(245, 158, 11, 0.15);
-      color: #f59e0b;
-    }
-    .connection-badge.skipped {
-      background: rgba(100, 116, 139, 0.15);
-      color: #64748b;
-    }
-
+    @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .connection-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 6px; font-weight: 600; }
+    .connection-badge.linked { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+    .connection-badge.waiting { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .connection-badge.skipped { background: rgba(100, 116, 139, 0.15); color: #64748b; }
     #chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
-    .chapter-card {
-      background: #1e293b;
-      border-radius: 16px;
-      padding: 20px;
-      border: 1px solid #334155;
-      transition: transform 0.2s;
-    }
+    .chapter-card { background: #1e293b; border-radius: 16px; padding: 20px; border: 1px solid #334155; transition: transform 0.2s; }
     .chapter-card:hover { transform: translateY(-2px); border-color: #38bdf8; }
-    .chapter-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #334155;
-    }
+    .chapter-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #334155; }
     .chapter-icon { font-size: 28px; }
     .chapter-info { flex: 1; }
     .chapter-info h3 { font-size: 16px; color: #f1f5f9; text-transform: capitalize; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .edit-btn {
-      background: transparent;
-      border: none;
-      color: #64748b;
-      cursor: pointer;
-      font-size: 14px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      transition: all 0.2s;
-    }
+    .edit-btn { background: transparent; border: none; color: #64748b; cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; transition: all 0.2s; }
     .edit-btn:hover { color: #38bdf8; background: rgba(56,189,248,0.1); }
-    .chapter-name-input {
-      background: #0f172a;
-      border: 1px solid #38bdf8;
-      border-radius: 6px;
-      color: #f1f5f9;
-      padding: 4px 10px;
-      font-size: 14px;
-      font-family: inherit;
-      outline: none;
-      width: 100%;
-    }
-    .badge { 
-      display: inline-block; 
-      background: #38bdf8; 
-      color: #0f172a; 
-      padding: 2px 10px; 
-      border-radius: 20px; 
-      font-size: 11px; 
-      font-weight: 600;
-      margin-right: 8px;
-    }
+    .chapter-name-input { background: #0f172a; border: 1px solid #38bdf8; border-radius: 6px; color: #f1f5f9; padding: 4px 10px; font-size: 14px; font-family: inherit; outline: none; width: 100%; }
+    .badge { display: inline-block; background: #38bdf8; color: #0f172a; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-right: 8px; }
     .count { font-size: 12px; color: #94a3b8; }
     .items-list { display: flex; flex-direction: column; gap: 8px; }
-    .item-row {
-      background: #0f172a;
-      border-radius: 10px;
-      padding: 12px 14px;
-      border: 1px solid #1e293b;
-      position: relative;
-      cursor: pointer;
-      transition: all 0.2s;
-      user-select: none;
-      -webkit-user-select: none;
-    }
+    .item-row { background: #0f172a; border-radius: 10px; padding: 12px 14px; border: 1px solid #1e293b; position: relative; cursor: pointer; transition: all 0.2s; user-select: none; -webkit-user-select: none; display: flex; align-items: flex-start; gap: 12px; }
     .item-row:hover { border-color: #475569; background: #1e293b; }
-    .item-row.pressing { 
-      background: #1e3a5f; 
-      border-color: #38bdf8; 
-      transform: scale(0.98);
-    }
-    .item-row.pressed { 
-      animation: pulse 0.3s ease;
-    }
-    .item-row.notes-paired {
-      border-left: 3px solid #22c55e;
-    }
-    .item-row.notes-waiting {
-      border-left: 3px solid #f59e0b;
-    }
-    .item-row.notes-skipped {
-      border-left: 3px solid #64748b;
-    }
-    .item-row.notes-item-row {
-      border-left: 3px solid #22c55e;
-      background: linear-gradient(90deg, rgba(34,197,94,0.05) 0%, #0f172a 100%);
-    }
-    .item-row.notes-item-row:hover {
-      border-color: #22c55e;
-      background: linear-gradient(90deg, rgba(34,197,94,0.1) 0%, #1e293b 100%);
-    }
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(0.95); }
-      100% { transform: scale(1); }
-    }
-    .video-item::after {
-      content: "⏱ Long press to move";
-      position: absolute;
-      top: 6px;
-      right: 8px;
-      font-size: 9px;
-      color: #64748b;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-    .video-item:hover::after { opacity: 1; }
+    .item-row.pressing { background: #1e3a5f; border-color: #38bdf8; transform: scale(0.98); }
+    .item-row.pressed { animation: pulse 0.3s ease; }
+    .item-row.notes-paired { border-left: 3px solid #22c55e; }
+    .item-row.notes-waiting { border-left: 3px solid #f59e0b; }
+    .item-row.notes-skipped { border-left: 3px solid #64748b; }
+    .item-row.notes-item-row { border-left: 3px solid #22c55e; background: linear-gradient(90deg, rgba(34,197,94,0.05) 0%, #0f172a 100%); }
+    .item-row.notes-item-row:hover { border-color: #22c55e; background: linear-gradient(90deg, rgba(34,197,94,0.1) 0%, #1e293b 100%); }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(0.95); } 100% { transform: scale(1); } }
     .item-title { font-size: 13px; color: #f8fafc; font-weight: 500; margin-bottom: 6px; padding-right: 60px; }
     .item-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .subject { font-size: 11px; color: #38bdf8; background: rgba(56,189,248,0.1); padding: 2px 8px; border-radius: 12px; }
     .date { font-size: 11px; color: #64748b; }
-
-    /* OLD TITLE STYLE */
-    .old-title-box {
-      font-size: 11px;
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px dashed #334155;
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .old-title-box .old-label {
-      color: #f59e0b;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-    .old-title-box .old-text {
-      color: #f87171;
-      font-weight: 500;
-      line-height: 1.4;
-    }
-
-    /* DELETE BUTTON */
-    .delete-btn {
-      position: absolute;
-      top: 6px;
-      right: 8px;
-      background: rgba(239, 68, 68, 0.15);
-      color: #ef4444;
-      border: none;
-      width: 22px;
-      height: 22px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: all 0.2s;
-      z-index: 5;
-    }
+    .old-title-box { font-size: 11px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #334155; display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; }
+    .old-title-box .old-label { color: #f59e0b; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; white-space: nowrap; }
+    .old-title-box .old-text { color: #f87171; font-weight: 500; line-height: 1.4; }
+    .delete-btn { position: absolute; top: 6px; right: 8px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: none; width: 22px; height: 22px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.2s; z-index: 5; }
     .item-row:hover .delete-btn { opacity: 1; }
     .delete-btn:hover { background: #ef4444; color: white; }
-
-    /* NOTES BUTTON */
-    .notes-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: white;
-      border: none;
-      padding: 4px 10px;
-      border-radius: 8px;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-left: 8px;
-      transition: all 0.2s;
-    }
+    .notes-btn { display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; margin-left: 8px; transition: all 0.2s; }
     .notes-btn:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
-    .notes-btn:disabled {
-      background: #334155;
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
-
-    .link-btn {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: #22c55e;
-      color: white;
-      text-decoration: none;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-    }
+    .notes-btn:disabled { background: #334155; cursor: not-allowed; opacity: 0.5; }
+    .link-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: #22c55e; color: white; text-decoration: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; }
     .link-btn:hover { background: #16a34a; }
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(4px);
-    }
-    .modal-content {
-      background: #1e293b;
-      border-radius: 20px;
-      padding: 28px;
-      width: 90%;
-      max-width: 420px;
-      border: 1px solid #334155;
-      animation: slideUp 0.3s ease;
-    }
-    @keyframes slideUp {
-      from { transform: translateY(30px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+    .modal-content { background: #1e293b; border-radius: 20px; padding: 28px; width: 90%; max-width: 420px; border: 1px solid #334155; animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .modal-content h3 { color: #38bdf8; margin-bottom: 4px; font-size: 18px; }
     .modal-subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
-
-    /* Delete Confirm Modal */
-    .delete-confirm-modal .modal-content {
-      border: 2px solid #ef4444;
-    }
-    .delete-confirm-modal .modal-content h3 {
-      color: #ef4444;
-    }
-    .btn-danger {
-      width: 100%;
-      padding: 12px;
-      margin-top: 8px;
-      background: #ef4444;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
+    .delete-confirm-modal .modal-content { border: 2px solid #ef4444; }
+    .delete-confirm-modal .modal-content h3 { color: #ef4444; }
+    .btn-danger { width: 100%; padding: 12px; margin-top: 8px; background: #ef4444; color: white; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
     .btn-danger:hover { background: #dc2626; }
-    .btn-secondary {
-      width: 100%;
-      padding: 12px;
-      margin-top: 8px;
-      background: #334155;
-      color: #e2e8f0;
-      border: none;
-      border-radius: 10px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: 600;
-    }
+    .btn-secondary { width: 100%; padding: 12px; margin-top: 8px; background: #334155; color: #e2e8f0; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; font-weight: 600; }
     .btn-secondary:hover { background: #475569; }
-    .delete-warning {
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 16px;
-      color: #fca5a5;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .delete-item-preview {
-      background: #0f172a;
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 16px;
-    }
-    .delete-item-preview .label {
-      font-size: 10px;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-    }
-    .delete-item-preview .title {
-      font-size: 14px;
-      color: #f8fafc;
-      font-weight: 600;
-    }
-
-    /* Notes View Modal */
-    .notes-view-modal .modal-content {
-      border: 2px solid #22c55e;
-      max-width: 500px;
-    }
-    .notes-view-modal .modal-content h3 {
-      color: #22c55e;
-    }
-    .notes-item {
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      transition: all 0.2s;
-    }
+    .delete-warning { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 12px; margin-bottom: 16px; color: #fca5a5; font-size: 13px; line-height: 1.5; }
+    .delete-item-preview { background: #0f172a; border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+    .delete-item-preview .label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .delete-item-preview .title { font-size: 14px; color: #f8fafc; font-weight: 600; }
+    .notes-view-modal .modal-content { border: 2px solid #22c55e; max-width: 500px; }
+    .notes-view-modal .modal-content h3 { color: #22c55e; }
+    .notes-item { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; transition: all 0.2s; }
     .notes-item:hover { border-color: #22c55e; }
-    .notes-item .num-badge {
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: white;
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 14px;
-      flex-shrink: 0;
-    }
-    .notes-item .content {
-      flex: 1;
-      min-width: 0;
-    }
-    .notes-item .content .title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #f1f5f9;
-      margin-bottom: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .notes-item .content .meta {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .notes-item .content .meta .subject {
-      font-size: 11px;
-      color: #38bdf8;
-      background: rgba(56,189,248,0.1);
-      padding: 2px 8px;
-      border-radius: 12px;
-    }
-    .notes-item .content .meta .date {
-      font-size: 11px;
-      color: #64748b;
-    }
-    .notes-item .open-btn {
-      background: #22c55e;
-      color: white;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      flex-shrink: 0;
-      transition: all 0.2s;
-    }
+    .notes-item .num-badge { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+    .notes-item .content { flex: 1; min-width: 0; }
+    .notes-item .content .title { font-size: 14px; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .notes-item .content .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .notes-item .content .meta .subject { font-size: 11px; color: #38bdf8; background: rgba(56,189,248,0.1); padding: 2px 8px; border-radius: 12px; }
+    .notes-item .content .meta .date { font-size: 11px; color: #64748b; }
+    .notes-item .open-btn { background: #22c55e; color: white; text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; flex-shrink: 0; transition: all 0.2s; }
     .notes-item .open-btn:hover { background: #16a34a; }
-    .notes-empty {
-      text-align: center;
-      padding: 40px;
-      color: #64748b;
-    }
+    .notes-empty { text-align: center; padding: 40px; color: #64748b; }
     .notes-empty .icon { font-size: 48px; margin-bottom: 16px; }
     .notes-empty .title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
     .notes-empty .desc { font-size: 13px; }
-
-    /* Video Info Box - Enhanced */
-    .video-info-box {
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 16px;
-      position: relative;
-    }
-    .video-info-box .label { 
-      font-size: 11px; 
-      color: #64748b; 
-      text-transform: uppercase; 
-      letter-spacing: 1px; 
-      margin-bottom: 6px; 
-    }
-    .video-info-box .title { 
-      font-size: 14px; 
-      color: #f8fafc; 
-      font-weight: 600; 
-      line-height: 1.4; 
-    }
-    .video-info-box .source-info {
-      font-size: 11px;
-      color: #94a3b8;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px dashed #334155;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .video-info-box .source-info .source-label {
-      color: #f59e0b;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
-    }
-    .video-info-box .source-info .source-text {
-      color: #e2e8f0;
-      font-weight: 500;
-    }
-    .video-info-box .original-info {
-      font-size: 11px;
-      color: #94a3b8;
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px dashed #1e293b;
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .video-info-box .original-info .orig-label {
-      color: #f59e0b;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-    .video-info-box .original-info .orig-text {
-      color: #f87171;
-      font-weight: 500;
-      line-height: 1.4;
-    }
-    .moved-badge {
-      position: absolute;
-      top: -8px;
-      right: 14px;
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      color: white;
-      font-size: 9px;
-      font-weight: 800;
-      padding: 3px 12px;
-      border-radius: 20px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-    }
-
-    .chapter-option {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px;
-      background: #0f172a;
-      border-radius: 12px;
-      margin-bottom: 8px;
-      cursor: pointer;
-      border: 1px solid #1e293b;
-      transition: all 0.2s;
-    }
+    .video-info-box { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 14px; margin-bottom: 16px; position: relative; }
+    .video-info-box .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .video-info-box .title { font-size: 14px; color: #f8fafc; font-weight: 600; line-height: 1.4; }
+    .video-info-box .source-info { font-size: 11px; color: #94a3b8; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #334155; display: flex; align-items: center; gap: 6px; }
+    .video-info-box .source-info .source-label { color: #f59e0b; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    .video-info-box .source-info .source-text { color: #e2e8f0; font-weight: 500; }
+    .video-info-box .original-info { font-size: 11px; color: #94a3b8; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #1e293b; display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; }
+    .video-info-box .original-info .orig-label { color: #f59e0b; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; white-space: nowrap; }
+    .video-info-box .original-info .orig-text { color: #f87171; font-weight: 500; line-height: 1.4; }
+    .moved-badge { position: absolute; top: -8px; right: 14px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; font-size: 9px; font-weight: 800; padding: 3px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1.5px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
+    .chapter-option { display: flex; align-items: center; gap: 12px; padding: 14px; background: #0f172a; border-radius: 12px; margin-bottom: 8px; cursor: pointer; border: 1px solid #1e293b; transition: all 0.2s; }
     .chapter-option:hover { background: #1e3a5f; border-color: #38bdf8; }
     .opt-icon { font-size: 20px; }
     .opt-name { flex: 1; font-size: 14px; color: #f1f5f9; text-transform: capitalize; }
     .opt-count { font-size: 12px; color: #64748b; }
-    .btn-cancel {
-      width: 100%;
-      padding: 12px;
-      margin-top: 12px;
-      background: #334155;
-      color: #e2e8f0;
-      border: none;
-      border-radius: 10px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: 600;
-    }
+    .btn-cancel { width: 100%; padding: 12px; margin-top: 12px; background: #334155; color: #e2e8f0; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; font-weight: 600; }
     .btn-cancel:hover { background: #475569; }
-    .toast {
-      position: fixed;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      padding: 14px 28px;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 600;
-      z-index: 2000;
-      transition: transform 0.4s ease;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    }
+    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); padding: 14px 28px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 2000; transition: transform 0.4s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
     .toast.show { transform: translateX(-50%) translateY(0); }
     .toast.success { background: #22c55e; color: white; }
     .toast.error { background: #ef4444; color: white; }
     .toast.info { background: #3b82f6; color: white; }
-    /* ✅ STATS DASHBOARD */
-    .stats-dashboard {
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      border: 1px solid #334155;
-      border-radius: 20px;
-      padding: 20px;
-      margin-bottom: 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    }
-    .stats-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #334155;
-    }
-    .stats-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #f1f5f9;
-    }
-    .live-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #ef4444;
-      animation: pulse-dot 2s infinite;
-    }
-    .live-dot.connected {
-      background: #22c55e;
-    }
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.2); }
-    }
-    .live-text {
-      font-size: 12px;
-      color: #94a3b8;
-      margin-left: auto;
-    }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .stat-card {
-      background: #0f172a;
-      border-radius: 14px;
-      padding: 16px;
-      text-align: center;
-      border: 1px solid #1e293b;
-      transition: all 0.2s;
-    }
-    .stat-card:hover {
-      transform: translateY(-2px);
-      border-color: #475569;
-    }
+    .stats-dashboard { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; border-radius: 20px; padding: 20px; margin-bottom: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    .stats-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #334155; position: relative; z-index: 1; }
+    .stats-title { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+    .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: pulse-dot 2s infinite; }
+    .live-dot.connected { background: #22c55e; }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+    .live-text { font-size: 12px; color: #94a3b8; margin-left: auto; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .stat-card { background: #0f172a; border-radius: 14px; padding: 16px; text-align: center; border: 1px solid #1e293b; transition: all 0.2s; }
+    .stat-card:hover { transform: translateY(-2px); border-color: #475569; }
     .stat-card.online { border-left: 3px solid #22c55e; }
     .stat-card.today { border-left: 3px solid #38bdf8; }
     .stat-card.peak { border-left: 3px solid #f59e0b; }
     .stat-card.devices { border-left: 3px solid #a855f7; }
     .stat-icon { font-size: 24px; margin-bottom: 6px; }
-    .stat-value {
-      font-size: 28px;
-      font-weight: 800;
-      color: #f8fafc;
-      line-height: 1;
-    }
-    .stat-label {
-      font-size: 11px;
-      color: #94a3b8;
-      margin-top: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .users-list {
-      background: #0f172a;
-      border-radius: 14px;
-      padding: 14px;
-      border: 1px solid #1e293b;
-    }
-    .users-list-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 10px;
-    }
-    .user-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      margin-bottom: 4px;
-      background: #1e293b;
-      font-size: 12px;
-    }
+    .stat-value { font-size: 28px; font-weight: 800; color: #f8fafc; line-height: 1; }
+    .stat-label { font-size: 11px; color: #94a3b8; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .users-list { background: #0f172a; border-radius: 14px; padding: 14px; border: 1px solid #1e293b; }
+    .users-list-title { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .user-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; background: #1e293b; font-size: 12px; }
     .user-row:last-child { margin-bottom: 0; }
     .user-device { font-size: 16px; }
     .user-info { flex: 1; }
     .user-browser { color: #f1f5f9; font-weight: 500; }
     .user-screen { color: #64748b; font-size: 10px; }
-    .user-time {
-      color: #22c55e;
-      font-size: 10px;
-      font-weight: 600;
-    }
-    .user-time.offline {
-      color: #ef4444;
-    }
+    .user-time { color: #22c55e; font-size: 10px; font-weight: 600; }
+    .user-time.offline { color: #ef4444; }
+    .live-class-item { background: #0f172a; border-radius: 12px; padding: 16px; border: 1px solid #334155; display: flex; flex-direction: column; gap: 10px; }
+    .live-class-item.ended { border-left: 4px solid #64748b; }
+    .live-class-item.live { border-left: 4px solid #ef4444; }
+    .live-class-item.upcoming { border-left: 4px solid #f59e0b; }
+    .live-class-header { display: flex; align-items: center; justify-content: space-between; }
+    .live-class-name { font-size: 15px; font-weight: 700; color: #f1f5f9; }
+    .live-class-status { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+    .live-class-status.live { background: rgba(239,68,68,0.2); color: #ef4444; }
+    .live-class-status.ended { background: rgba(100,116,139,0.2); color: #94a3b8; }
+    .live-class-status.upcoming { background: rgba(245,158,11,0.2); color: #f59e0b; }
+    .live-class-input { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 12px; color: #f1f5f9; font-family: inherit; font-size: 13px; width: 100%; }
+    .live-class-input:focus { border-color: #38bdf8; outline: none; }
+    input[type="datetime-local"] { color-scheme: dark; }
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+    .live-class-btns { display: flex; gap: 8px; }
+    .live-class-btn { flex: 1; padding: 8px; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+    .live-class-btn.start { background: #22c55e; color: white; }
+    .live-class-btn.start:hover { background: #16a34a; }
+    .live-class-btn.end { background: #ef4444; color: white; }
+    .live-class-btn.end:hover { background: #dc2626; }
+    .live-class-btn.update { background: #38bdf8; color: #0f172a; }
+    .live-class-btn.update:hover { background: #0ea5e9; }
+    .live-class-btn.upcoming { background: #f59e0b; color: #0f172a; }
+    .live-class-btn.upcoming:hover { background: #d97706; }
+    .test-item { background: #0f172a; border-radius: 12px; padding: 14px; border: 1px solid #334155; display: flex; align-items: center; gap: 12px; }
+    .test-item:hover { border-color: #475569; }
+    .test-info { flex: 1; }
+    .test-title { font-size: 14px; font-weight: 600; color: #f1f5f9; }
+    .test-meta { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .test-delete-btn { background: rgba(239,68,68,0.15); color: #ef4444; border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+    .test-delete-btn:hover { background: #ef4444; color: white; }
+    .item-thumbnail-wrap { flex-shrink: 0; position: relative; width: 140px; height: 80px; border-radius: 10px; overflow: hidden; border: 1px solid #334155; background: #0f172a; }
+    .item-thumbnail { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .play-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 32px; height: 32px; background: rgba(56, 189, 248, 0.9); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+    .item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .item-row .item-title { font-size: 13px; color: #f8fafc; font-weight: 500; line-height: 1.4; margin-bottom: 2px; padding-right: 0; }
+    .item-row .item-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-right: 0; }
+    .item-row .delete-btn { position: absolute; top: 6px; right: 6px; z-index: 10; }
+    .item-row .link-btn { position: static; transform: none; align-self: flex-start; margin-top: 4px; }
+    .item-row .old-title-box { margin-top: 4px; padding-top: 4px; }
+    .sidebar-toggle { position: fixed; top: 20px; right: 20px; z-index: 100; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); transition: all 0.3s; }
+    .sidebar-toggle:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4); }
+    .sidebar-toggle .badge-count { background: white; color: #22c55e; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 10px; min-width: 20px; text-align: center; }
+    .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 998; backdrop-filter: blur(4px); }
+    .sidebar-overlay.show { display: block; }
+    .sidebar-panel { position: fixed; top: 0; right: -420px; width: 400px; max-width: 90vw; height: 100%; background: #0f172a; border-left: 1px solid #334155; z-index: 999; transition: right 0.3s ease; overflow-y: auto; padding: 20px; }
+    .sidebar-panel.show { right: 0; }
+    .sidebar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #334155; }
+    .sidebar-title { font-size: 20px; font-weight: 800; color: #22c55e; display: flex; align-items: center; gap: 10px; }
+    .sidebar-close { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: none; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .sidebar-close:hover { background: #ef4444; color: white; }
+    .sidebar-chapter { background: #1e293b; border-radius: 14px; padding: 16px; margin-bottom: 12px; border: 1px solid #334155; transition: all 0.2s; }
+    .sidebar-chapter:hover { border-color: #22c55e; transform: translateX(-4px); }
+    .sidebar-chapter-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .sidebar-chapter-icon { font-size: 24px; }
+    .sidebar-chapter-name { font-size: 14px; font-weight: 700; color: #f1f5f9; flex: 1; }
+    .sidebar-chapter-count { font-size: 11px; color: #94a3b8; background: #0f172a; padding: 3px 10px; border-radius: 8px; }
+    .sidebar-items { display: flex; flex-direction: column; gap: 6px; }
+    .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #0f172a; border-radius: 10px; border: 1px solid #1e293b; transition: all 0.2s; cursor: pointer; }
+    .sidebar-item:hover { border-color: #22c55e; background: #1e293b; }
+    .sidebar-item-num { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .sidebar-item-info { flex: 1; min-width: 0; }
+    .sidebar-item-title { font-size: 13px; color: #f1f5f9; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-item-meta { font-size: 10px; color: #64748b; margin-top: 2px; }
+    .sidebar-item-open { background: #22c55e; color: white; text-decoration: none; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+    .sidebar-item-open:hover { background: #16a34a; }
+    .sidebar-empty { text-align: center; padding: 40px 20px; color: #64748b; }
+    .sidebar-empty-icon { font-size: 48px; margin-bottom: 16px; }
+    .add-live-section { background: #0f172a; border-radius: 14px; padding: 16px; margin-top: 16px; border: 1px solid #334155; }
+    .add-live-title { font-size: 14px; font-weight: 700; color: #38bdf8; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .add-live-input { width: 100%; padding: 10px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #f1f5f9; font-family: inherit; font-size: 13px; margin-bottom: 8px; }
+    .add-live-input:focus { border-color: #38bdf8; outline: none; }
+    .add-live-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+    .add-live-btn:hover { transform: scale(1.02); box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); }
+    .live-class-delete { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: none; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 8px; transition: all 0.2s; }
+    .live-class-delete:hover { background: #ef4444; color: white; }
+    .heartbeat-section { background: #0f172a; border-radius: 14px; padding: 16px; margin-bottom: 16px; border: 1px solid #334155; }
+    .heartbeat-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .heartbeat-label { font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+    .heartbeat-desc { font-size: 12px; color: #64748b; }
+    .heartbeat-btn { padding: 12px 24px; border-radius: 10px; border: none; font-size: 14px; font-weight: 800; cursor: pointer; min-width: 140px; transition: all 0.2s; }
+    .heartbeat-btn.on { background: #22c55e; color: #fff; box-shadow: 0 4px 15px rgba(34,197,94,0.3); }
+    .heartbeat-btn.off { background: #ef4444; color: #fff; box-shadow: 0 4px 15px rgba(239,68,68,0.3); }
     @media (max-width: 768px) {
       #chapters { grid-template-columns: 1fr; }
       body { padding: 12px; }
       .delete-btn { opacity: 1; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .item-thumbnail-wrap { width: 110px; height: 65px; }
+      .item-row { gap: 10px; padding: 10px; }
     }
-  </style>
-<base target="_blank">
+      .subject-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 8px; }
+    .subject-card { background: #1e293b; border: 2px solid #334155; border-radius: 14px; padding: 16px 10px; text-align: center; cursor: pointer; transition: all 0.25s; }
+    .subject-card:hover { border-color: #38bdf8; transform: translateY(-3px); background: #1e3a5f; box-shadow: 0 8px 20px rgba(56,189,248,0.15); }
+    .subject-card:active { transform: scale(0.97); }
+    .subject-card.selected { border-color: #22c55e; background: linear-gradient(135deg, rgba(34,197,94,0.1), #1e293b); box-shadow: 0 4px 15px rgba(34,197,94,0.2); }
+    .subject-icon { font-size: 32px; margin-bottom: 8px; }
+    .subject-name { font-size: 13px; font-weight: 700; color: #f1f5f9; }
+
+</style>
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
@@ -757,7 +262,6 @@
     <span class="last-updated" id="lastUpdated">Loading...</span>
   </div>
 
-  <!-- ✅ LIVE STATS DASHBOARD -->
   <div class="stats-dashboard" id="statsDashboard">
     <div class="stats-header">
       <span class="stats-title">📊 Live Website Stats</span>
@@ -786,13 +290,82 @@
         <div class="stat-label">Device Types</div>
       </div>
     </div>
+    <div class="heartbeat-section">
+      <div class="heartbeat-row">
+        <div>
+          <div class="heartbeat-label">💓 User Tracking Control</div>
+          <div class="heartbeat-desc">Toggle heartbeat tracking for all users</div>
+        </div>
+        <button id="heartbeat-toggle-btn" class="heartbeat-btn on" onclick="window.heartbeatToggleClicked()">🟢 ON</button>
+      </div>
+    </div>
     <div class="users-list" id="usersList">
       <div class="users-list-title">🟢 Active Users</div>
       <div id="activeUsersList"></div>
     </div>
   </div>
 
-  <!-- Skip Notes Popup -->
+  <div class="stats-dashboard" id="liveClassesDashboard" style="margin-top:20px;">
+    <div class="stats-header">
+      <span class="stats-title">🔴 Live Classes Control</span>
+      <span class="live-dot" style="background:#ef4444;"></span>
+    </div>
+    <div id="liveClassesList" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="color:#64748b;font-size:13px;text-align:center;padding:20px;">Loading live classes...</div>
+    </div>
+    <div class="add-live-section">
+      <div class="add-live-title">➕ Add New Live Class</div>
+
+      <!-- Step 1: Subject Selection -->
+      <div id="subjectSelection">
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:12px;text-align:center;">Select a Subject</div>
+        <div class="subject-cards">
+          <div class="subject-card" onclick="selectSubject('Physics')">
+            <div class="subject-icon">⚛️</div>
+            <div class="subject-name">Physics</div>
+          </div>
+          <div class="subject-card" onclick="selectSubject('Chemistry')">
+            <div class="subject-icon">🧪</div>
+            <div class="subject-name">Chemistry</div>
+          </div>
+          <div class="subject-card" onclick="selectSubject('Biology')">
+            <div class="subject-icon">🧬</div>
+            <div class="subject-name">Biology</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Class Details Form (hidden initially) -->
+      <div id="classDetailsForm" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <button onclick="backToSubjectSelection()" style="background:#334155;color:#e2e8f0;border:none;padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">← Back</button>
+          <div id="selectedSubjectDisplay" style="font-size:14px;font-weight:700;color:#38bdf8;"></div>
+        </div>
+        <input type="datetime-local" id="newLiveClassTime" class="add-live-input" placeholder="Select date & time">
+        <input type="text" id="newLiveClassThumb" class="add-live-input" placeholder="Thumbnail URL (optional)">
+        <input type="text" id="newLiveClassUrl" class="add-live-input" placeholder="Video URL (optional)">
+        <button class="add-live-btn" onclick="addNewLiveClass()">➕ Submit Live Class</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-dashboard" id="testsDashboard" style="margin-top:20px;">
+    <div class="stats-header">
+      <span class="stats-title">📝 Tests Management</span>
+    </div>
+    <div id="testsList" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="color:#64748b;font-size:13px;text-align:center;padding:20px;">Loading tests...</div>
+    </div>
+    <div style="margin-top:16px;padding:16px;background:#0f172a;border-radius:12px;border:1px solid #334155;">
+      <h4 style="color:#38bdf8;font-size:14px;margin-bottom:12px;">➕ Add New Test</h4>
+      <input type="text" id="newTestTitle" placeholder="Test Title" style="width:100%;padding:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#f1f5f9;margin-bottom:8px;font-family:inherit;">
+      <input type="text" id="newTestUrl" placeholder="Test URL" style="width:100%;padding:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#f1f5f9;margin-bottom:8px;font-family:inherit;">
+      <input type="text" id="newTestSubject" placeholder="Subject (optional)" style="width:100%;padding:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#f1f5f9;margin-bottom:8px;font-family:inherit;">
+      <input type="text" id="newTestDate" placeholder="Date (optional)" style="width:100%;padding:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#f1f5f9;margin-bottom:12px;font-family:inherit;">
+      <button class="refresh-btn" onclick="addNewTest()" style="width:100%;margin-top:0;">➕ Add Test</button>
+    </div>
+  </div>
+
   <div id="skipPopup" class="skip-popup">
     📄 <span id="skipPopupText">Notes are available for this chapter</span>
     <button class="skip-btn" onclick="skipToNotes()">Skip to Notes ➜</button>
@@ -800,9 +373,31 @@
   </div>
 
   <div id="chapters"></div>
+
+  <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebarToggle">
+    📄 Notes <span class="badge-count" id="notesBadge">0</span>
+  </button>
+  <div style="position:fixed;top:20px;right:180px;z-index:100;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#e2e8f0;">
+    <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse-dot 2s infinite;"></span>
+    <span id="headerUserCount">0</span> online
+  </div>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+  <div class="sidebar-panel" id="sidebarPanel">
+    <div class="sidebar-header">
+      <div class="sidebar-title">📄 Notes</div>
+      <button class="sidebar-close" onclick="toggleSidebar()">&times;</button>
+    </div>
+    <div id="sidebarNotesList">
+      <div class="sidebar-empty">
+        <div class="sidebar-empty-icon">📭</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px;">No Notes Found</div>
+        <div style="font-size:13px;">Notes will appear here when available</div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Move Modal -->
 <div id="moveModal" class="modal">
   <div class="modal-content">
     <h3>📦 Move Video To Chapter</h3>
@@ -825,7 +420,6 @@
   </div>
 </div>
 
-<!-- Delete Confirm Modal -->
 <div id="deleteModal" class="modal delete-confirm-modal">
   <div class="modal-content">
     <h3>🗑️ Delete Video</h3>
@@ -842,7 +436,6 @@
   </div>
 </div>
 
-<!-- Notes View Modal -->
 <div id="notesModal" class="modal notes-view-modal">
   <div class="modal-content" style="max-width: 500px;">
     <h3>📄 Notes</h3>
@@ -856,98 +449,75 @@
 
 <script>
 const FIREBASE_URL = "https://sandeep-a3120-default-rtdb.firebaseio.com";
+const FIREBASE_ACTIVE_USERS_URL = "https://active-user-f2236-default-rtdb.firebaseio.com";
 let chaptersData = {};
 let longPressTimer;
 let selectedVideo = null;
 let selectedSourceChapter = null;
 let selectedVideoKey = null;
 let pendingDelete = null;
-
-// ====== STATE - ALL COMPUTED FROM FIREBASE, NO LOCALSTORAGE ======
 let skippedChapters = [];
-
-// ✅ Firebase Realtime Connection (WebSocket - NO repeated downloads!)
 let firebaseApp = null;
 let firebaseDb = null;
 let isRealtimeConnected = false;
+let firebaseApp2 = null;
+let firebaseDb2 = null;
 
-// ✅ Initialize Firebase Realtime (ONE-TIME connection, live updates forever)
 function initFirebaseRealtime() {
-  if (firebaseApp) return; // Already initialized
-
+  if (firebaseApp) return;
   try {
-    // Parse database URL to get project config
-    const dbUrl = new URL(FIREBASE_URL);
-    const projectId = dbUrl.hostname.split('.')[0];
-
-    firebaseApp = firebase.initializeApp({
-      databaseURL: FIREBASE_URL
-    });
-
+    firebaseApp = firebase.initializeApp({ databaseURL: FIREBASE_URL });
     firebaseDb = firebase.database();
-
-    // 🔥 REALTIME LISTENER - WebSocket connection, NO repeated downloads!
-    firebaseDb.ref('/').on('value', (snapshot) => {
+    console.log("[Firebase] Primary connected:", FIREBASE_URL);
+    try {
+      firebaseApp2 = firebase.initializeApp({ databaseURL: FIREBASE_ACTIVE_USERS_URL }, "activeUsersApp");
+      firebaseDb2 = firebaseApp2.database();
+      console.log("[Firebase] Secondary connected:", FIREBASE_ACTIVE_USERS_URL);
+    } catch (e2) {
+      console.error("[Firebase] Secondary init error:", e2);
+    }
+    firebaseDb.ref("/").on("value", (snapshot) => {
       const newData = snapshot.val() || {};
-
-      // Only update if data actually changed
       if (JSON.stringify(chaptersData) !== JSON.stringify(newData)) {
         chaptersData = newData;
         renderChapters();
         checkForNotesPopup();
-
-        // Show update indicator
         const now = new Date();
         const timeStr = now.toLocaleTimeString();
-        const lastUpdatedEl = document.getElementById('lastUpdated');
-        if (lastUpdatedEl) {
-          lastUpdatedEl.textContent = `🟢 Live | Updated: ${timeStr}`;
-        }
-
-        if (isRealtimeConnected) {
-          showToast("📡 Data updated from Firebase", "success");
-        }
+        const el = document.getElementById("lastUpdated");
+        if (el) el.textContent = "🟢 Live | Updated: " + timeStr;
+        if (isRealtimeConnected) showToast("📡 Data updated from Firebase", "success");
         isRealtimeConnected = true;
       }
     }, (error) => {
       console.error("Firebase realtime error:", error);
       showToast("❌ Realtime connection failed, use Refresh button", "error");
     });
-
     showToast("🟢 Firebase Realtime connected!", "success");
-
   } catch (e) {
     console.error("Firebase init error:", e);
     showToast("❌ Failed to connect realtime, using manual refresh", "error");
-    // Fallback to manual fetch
     fetchDataManual();
   }
 }
 
-// ✅ Manual fetch fallback (if Firebase SDK fails)
 async function fetchDataManual() {
   try {
-    const res = await fetch(`${FIREBASE_URL}/.json`);
+    const res = await fetch(FIREBASE_URL + "/.json", { referrerPolicy: "no-referrer" });
     chaptersData = await res.json();
     renderChapters();
     checkForNotesPopup();
-
     const now = new Date();
-    const timeStr = now.toLocaleTimeString();
-    const lastUpdatedEl = document.getElementById('lastUpdated');
-    if (lastUpdatedEl) {
-      lastUpdatedEl.textContent = `Last updated: ${timeStr}`;
-    }
+    const el = document.getElementById("lastUpdated");
+    if (el) el.textContent = "Last updated: " + now.toLocaleTimeString();
   } catch (e) {
     showToast("❌ Failed to load data", "error");
   }
 }
 
-// ✅ Wrapper function for refresh button
 function fetchData() {
   if (firebaseDb) {
-    // Force refresh from Firebase
-    firebaseDb.ref('/').once('value').then((snapshot) => {
+    firebaseDb.ref("/").once("value").then((snapshot) => {
       chaptersData = snapshot.val() || {};
       renderChapters();
       checkForNotesPopup();
@@ -958,16 +528,11 @@ function fetchData() {
   }
 }
 
-// ====== CHECK IF NOTES ACTUALLY EXIST FOR A VIDEO CHAPTER ======
 function hasNotesChapter(videoChapterName) {
   const baseName = getBaseName(videoChapterName);
   const allChapters = Object.keys(chaptersData || {});
-  const matchingNotes = allChapters.find(ch => 
-    ch.includes('notes') && getBaseName(ch).toLowerCase() === baseName.toLowerCase()
-  );
-
+  const matchingNotes = allChapters.find(ch => ch.includes("notes") && getBaseName(ch).toLowerCase() === baseName.toLowerCase());
   if (!matchingNotes) return false;
-
   const notesData = chaptersData[matchingNotes];
   return notesData && Object.keys(notesData).length > 0;
 }
@@ -975,46 +540,33 @@ function hasNotesChapter(videoChapterName) {
 function getNotesChapterName(videoChapterName) {
   const baseName = getBaseName(videoChapterName);
   const allChapters = Object.keys(chaptersData || {});
-  return allChapters.find(ch => 
-    ch.includes('notes') && getBaseName(ch).toLowerCase() === baseName.toLowerCase()
-  );
+  return allChapters.find(ch => ch.includes("notes") && getBaseName(ch).toLowerCase() === baseName.toLowerCase());
 }
 
-// ✅ NEW: Get matching video chapter for a notes chapter
 function getVideoChapterName(notesChapterName) {
   const baseName = getBaseName(notesChapterName);
   const allChapters = Object.keys(chaptersData || {});
-  return allChapters.find(ch => 
-    ch.includes('video') && getBaseName(ch).toLowerCase() === baseName.toLowerCase()
-  );
+  return allChapters.find(ch => ch.includes("video") && getBaseName(ch).toLowerCase() === baseName.toLowerCase());
 }
 
-// ====== GET REAL CONNECTION COUNT (computed fresh from Firebase) ======
 function getConnectionCount(videoChapterName) {
   const notesChapterName = getNotesChapterName(videoChapterName);
   if (!notesChapterName) return 0;
-
   const videoCount = getSortedKeys(videoChapterName).length;
   const notesCount = getSortedKeys(notesChapterName).length;
-
   return Math.min(videoCount, notesCount);
 }
 
-// ====== CHECK IF A SPECIFIC VIDEO HAS A LINKED NOTE ======
 function hasLinkedNote(videoChapterName, videoKey) {
   const notesChapterName = getNotesChapterName(videoChapterName);
   if (!notesChapterName) return false;
-
   const videoKeys = getSortedKeys(videoChapterName);
   const notesKeys = getSortedKeys(notesChapterName);
-
   const videoIndex = videoKeys.indexOf(videoKey);
   if (videoIndex === -1) return false;
-
   return videoIndex < notesKeys.length;
 }
 
-// ====== GET THE LINKED NOTE KEY AND DATA ======
 function getSortedKeys(chapterName) {
   return Object.keys(chaptersData[chapterName] || {}).sort((a, b) => {
     const numA = parseInt(a.match(/\d+/)?.[0] || 0);
@@ -1026,43 +578,26 @@ function getSortedKeys(chapterName) {
 function getLinkedNote(videoChapterName, videoKey) {
   const notesChapterName = getNotesChapterName(videoChapterName);
   if (!notesChapterName) return null;
-
   const videoKeys = getSortedKeys(videoChapterName);
   const notesKeys = getSortedKeys(notesChapterName);
-
   const videoIndex = videoKeys.indexOf(videoKey);
   if (videoIndex === -1 || videoIndex >= notesKeys.length) return null;
-
   const noteKey = notesKeys[videoIndex];
   const noteData = chaptersData[notesChapterName][noteKey];
-
-  return {
-    noteKey: noteKey,
-    noteData: noteData,
-    sourceNotesChapter: notesChapterName
-  };
+  return { noteKey: noteKey, noteData: noteData, sourceNotesChapter: notesChapterName };
 }
 
-// ====== SKIP POPUP LOGIC ======
-
 function checkForNotesPopup() {
-  const popup = document.getElementById('skipPopup');
-  popup.classList.remove('show');
-
-  const videoChapters = Object.keys(chaptersData || {}).filter(c => c.includes('video'));
-
+  const popup = document.getElementById("skipPopup");
+  popup.classList.remove("show");
+  const videoChapters = Object.keys(chaptersData || {}).filter(c => c.includes("video"));
   for (const videoCh of videoChapters) {
     if (skippedChapters.includes(videoCh)) continue;
-
     const notesExist = hasNotesChapter(videoCh);
-
     if (notesExist) {
       const notesChapterName = getNotesChapterName(videoCh);
-
-      const popupText = document.getElementById('skipPopupText');
-      popupText.textContent = `📄 "${notesChapterName}" is ready. Skip to notes?`;
-      popup.classList.add('show');
-
+      document.getElementById("skipPopupText").textContent = `📄 "${notesChapterName}" is ready. Skip to notes?`;
+      popup.classList.add("show");
       popup.dataset.forChapter = videoCh;
       popup.dataset.notesChapter = notesChapterName;
       return;
@@ -1071,18 +606,17 @@ function checkForNotesPopup() {
 }
 
 function skipToNotes() {
-  const popup = document.getElementById('skipPopup');
+  const popup = document.getElementById("skipPopup");
   const notesChapter = popup.dataset.notesChapter;
-
   if (notesChapter) {
     const notesCard = document.querySelector(`[data-chapter-name="${notesChapter}"]`);
     if (notesCard) {
-      notesCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      notesCard.style.borderColor = '#f59e0b';
-      notesCard.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.3)';
+      notesCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      notesCard.style.borderColor = "#f59e0b";
+      notesCard.style.boxShadow = "0 0 20px rgba(245, 158, 11, 0.3)";
       setTimeout(() => {
-        notesCard.style.borderColor = '#334155';
-        notesCard.style.boxShadow = 'none';
+        notesCard.style.borderColor = "#334155";
+        notesCard.style.boxShadow = "none";
       }, 2000);
     }
   }
@@ -1090,57 +624,121 @@ function skipToNotes() {
 }
 
 function markSkipped() {
-  const popup = document.getElementById('skipPopup');
+  const popup = document.getElementById("skipPopup");
   const videoChapter = popup.dataset.forChapter;
-
   if (videoChapter) {
-    if (!skippedChapters.includes(videoChapter)) {
-      skippedChapters.push(videoChapter);
-    }
-
+    if (!skippedChapters.includes(videoChapter)) skippedChapters.push(videoChapter);
     showToast(`🚫 "${videoChapter}" marked: No notes coming`, "info");
   }
-
   closeSkipPopup();
   renderChapters();
 }
 
 function closeSkipPopup() {
-  const popup = document.getElementById('skipPopup');
-  popup.classList.remove('show');
+  const popup = document.getElementById("skipPopup");
+  popup.classList.remove("show");
   delete popup.dataset.forChapter;
   delete popup.dataset.notesChapter;
 }
 
-// ====== RENDER ======
+function getYouTubeThumbnail(url) {
+  if (!url) return "";
+  try {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/,
+    ];
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) return proxyImage("https://img.youtube.com/vi/" + match[1] + "/mqdefault.jpg");
+    }
+    if (url.includes("drive.google.com")) {
+      const driveMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (driveMatch && driveMatch[1]) return proxyImage("https://drive.google.com/thumbnail?id=" + driveMatch[1] + "&sz=w320");
+    }
+  } catch (e) { console.error("Thumbnail error:", e); }
+  return "";
+}
+
+// Proxy image through weserv to bypass referrer/CSP blocks on GitHub
+function proxyImage(url) {
+  if (!url) return "";
+  // Skip already proxied URLs
+  if (url.includes("images.weserv.nl")) return url;
+  // Skip data URLs and blob URLs
+  if (url.startsWith("data:") || url.startsWith("blob:")) return url;
+  // Use weserv.nl proxy with HTTPS
+  return "https://images.weserv.nl/?url=" + encodeURIComponent(url) + "&n=-1";
+}
+
+function getThumbnailHTML(url, title) {
+  try {
+    var thumbUrl = getYouTubeThumbnail(url);
+    if (!thumbUrl) return "";
+    return `<div class="item-thumbnail-wrap"><img class="item-thumbnail" src="${thumbUrl}" alt="${title || "Video"}" data-thumb-fallback referrerpolicy="no-referrer"><div class="play-overlay">&#9654;</div></div>`;
+  } catch (e) {
+    console.error("getThumbnailHTML error:", e);
+    return "";
+  }
+}
+
+function toggleSidebar() {
+  const panel = document.getElementById("sidebarPanel");
+  const overlay = document.getElementById("sidebarOverlay");
+  panel.classList.toggle("show");
+  overlay.classList.toggle("show");
+}
+
+function renderSidebarNotes() {
+  const container = document.getElementById("sidebarNotesList");
+  const badge = document.getElementById("notesBadge");
+  const notesChapters = Object.entries(chaptersData || {}).filter(([name]) => name.includes("notes"));
+  badge.textContent = notesChapters.length;
+
+  const activeUsersList = document.getElementById("activeUsersList");
+  let usersHtml = "";
+  if (activeUsersList && activeUsersList.children.length > 0) {
+    const userRows = activeUsersList.querySelectorAll(".user-row");
+    if (userRows.length > 0) {
+      const userMap = new Map();
+      Array.from(userRows).forEach(row => {
+        const browser = row.querySelector(".user-browser")?.textContent || "Unknown";
+        const page = row.querySelector(".user-screen")?.textContent || "";
+        const pageName = page.replace("📍", "").trim().split(" ")[0] || "Unknown";
+        const time = row.querySelector(".user-time")?.textContent || "";
+        if (!userMap.has(browser)) userMap.set(browser, { browser, pageName, time });
+      });
+      const uniqueUsers = Array.from(userMap.values());
+      usersHtml = `<div style="background:#0f172a;border-radius:14px;padding:14px;margin-bottom:16px;border:1px solid #334155;"><div style="font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">👥 Active Users (${uniqueUsers.length})</div>` +
+        uniqueUsers.map(user => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#1e293b;border-radius:8px;margin-bottom:6px;font-size:12px;"><span style="font-size:16px;">💻</span><div style="flex:1;"><div style="color:#f1f5f9;font-weight:500;">${user.browser}</div><div style="color:#38bdf8;font-size:11px;">📍 ${user.pageName}</div></div><span style="color:#22c55e;font-size:10px;font-weight:600;">${user.time}</span></div>`).join("") + "</div>";
+    }
+  }
+
+  if (notesChapters.length === 0) {
+    container.innerHTML = usersHtml + `<div class="sidebar-empty"><div class="sidebar-empty-icon">📭</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">No Notes Found</div><div style="font-size:13px;">Notes will appear here when available</div></div>`;
+    return;
+  }
+
+  container.innerHTML = usersHtml + notesChapters.map(([chapterName, chapterData]) => {
+    const items = Object.entries(chapterData || {}).map(([key, item]) => ({ key, ...item }));
+    return `<div class="sidebar-chapter"><div class="sidebar-chapter-header"><span class="sidebar-chapter-icon">📄</span><span class="sidebar-chapter-name">${chapterName}</span><span class="sidebar-chapter-count">${items.length} items</span></div><div class="sidebar-items">${items.map((item, idx) => `<div class="sidebar-item"><div class="sidebar-item-num">${idx + 1}</div><div class="sidebar-item-info"><div class="sidebar-item-title">${item.title || "Untitled"}</div><div class="sidebar-item-meta">${item.subject || "General"} | ${item.date || "No date"}</div></div><a href="${item.url}" target="_blank" class="sidebar-item-open" onclick="event.stopPropagation()">Open ↗</a></div>`).join("")}</div></div>`;
+  }).join("");
+}
 
 function renderChapters() {
-  const container = document.getElementById('chapters');
-  container.innerHTML = '';
-
-  // ✅ Render ALL chapters - VIDEO and NOTES both visible
-  const allChapters = Object.entries(chaptersData || {}).filter(([name]) => 
-    name.includes('video') || name.includes('notes')
-  );
-
+  const container = document.getElementById("chapters");
+  container.innerHTML = "";
+  const allChapters = Object.entries(chaptersData || {}).filter(([name]) => name.includes("video"));
   allChapters.forEach(([chapterName, chapterData]) => {
-    const isVideo = chapterName.includes('video');
-    const isNotes = chapterName.includes('notes');
-    const icon = isVideo ? '🎬' : '📄';
-    const type = isVideo ? 'Videos' : 'Notes';
-
-    const items = Object.entries(chapterData || {}).map(([key, item]) => ({
-      key, ...item
-    }));
-
-    let connectionBadge = '';
-    let actionButton = '';
-
+    const isVideo = chapterName.includes("video");
+    const icon = isVideo ? "🎬" : "📄";
+    const type = isVideo ? "Videos" : "Notes";
+    const items = Object.entries(chapterData || {}).map(([key, item]) => ({ key, ...item }));
+    let connectionBadge = "";
+    let actionButton = "";
     if (isVideo) {
-      // Video chapter logic
       const notesExist = hasNotesChapter(chapterName);
       const isSkipped = skippedChapters.includes(chapterName);
-
       if (notesExist) {
         const count = getConnectionCount(chapterName);
         connectionBadge = `<span class="connection-badge linked">🔗 ${count} linked</span>`;
@@ -1149,12 +747,10 @@ function renderChapters() {
       } else {
         connectionBadge = `<span class="connection-badge waiting">⏳ waiting</span>`;
       }
-
-      actionButton = notesExist 
+      actionButton = notesExist
         ? `<button class="notes-btn" onclick="openNotesModal('${chapterName}')" title="View Notes">📄 Notes</button>`
         : `<button class="notes-btn" disabled title="No notes available">📄 Notes</button>`;
     } else {
-      // Notes chapter logic - show linked video count
       const videoChapterName = getVideoChapterName(chapterName);
       if (videoChapterName) {
         const count = getConnectionCount(videoChapterName);
@@ -1162,171 +758,90 @@ function renderChapters() {
       }
       actionButton = `<button class="notes-btn" onclick="openNotesModal('${chapterName}')" title="View Notes">👁️ View</button>`;
     }
-
-    const card = document.createElement('div');
-    card.className = 'chapter-card';
-    card.setAttribute('data-chapter-name', chapterName);
-    card.innerHTML = `
-      <div class="chapter-header">
-        <span class="chapter-icon">${icon}</span>
-        <div class="chapter-info">
-          <h3>
-            <span id="title-${chapterName}">${chapterName}</span>
-            ${connectionBadge}
-            <button class="edit-btn" onclick="startEditChapter('${chapterName}')" title="Rename Chapter">✏️</button>
-          </h3>
-          <span class="badge">${type}</span>
-          <span class="count">${items.length} items</span>
-          ${actionButton}
-        </div>
-      </div>
-      <div class="items-list">
-        ${items.map((item, index) => {
-          let extraClass = '';
-          let notesIndicator = '';
-          let longPressAttrs = '';
-
-          if (isVideo) {
-            // Video item logic
-            const hasLink = hasLinkedNote(chapterName, item.key);
-
-            if (hasLink) {
-              extraClass = 'notes-paired';
-              notesIndicator = '<span style="font-size:10px;color:#22c55e;margin-left:6px;">📄 linked</span>';
-            } else if (skippedChapters.includes(chapterName)) {
-              extraClass = 'notes-skipped';
-            } else {
-              extraClass = 'notes-waiting';
-            }
-
-            longPressAttrs = `onmousedown="startLongPress(this, '${chapterName}', '${item.key}')"
-               ontouchstart="startLongPress(this, '${chapterName}', '${item.key}')"
-               onmouseup="cancelLongPress()"
-               onmouseleave="cancelLongPress()"
-               ontouchend="cancelLongPress()"
-               ontouchmove="cancelLongPress()"`;
-          } else {
-            // Notes item logic - green border
-            extraClass = 'notes-item-row';
-          }
-
-          // OLD TITLE DISPLAY
-          const oldTitleHtml = (item.originalTitle && item.originalTitle !== item.title) ? `
-            <div class="old-title-box">
-              <span class="old-label">OLD title:</span>
-              <span class="old-text">${item.originalTitle}</span>
-            </div>
-          ` : '';
-
-          // DELETE BUTTON
-          const deleteBtnHtml = `
-            <button class="delete-btn" onclick="openDeleteModal('${chapterName}', '${item.key}', event)" title="Delete ${isVideo ? 'Video' : 'Note'}">🗑️</button>
-          `;
-
-          return `
-          <div class="item-row ${isVideo ? 'video-item' : ''} ${extraClass}" 
-               data-chapter="${chapterName}" 
-               data-key="${item.key}"
-               data-index="${index}"
-               ${longPressAttrs}>
-            ${deleteBtnHtml}
-            <div class="item-title">${item.title}${notesIndicator}</div>
-            <div class="item-meta">
-              <span class="subject">${item.subject}</span>
-              <span class="date">${item.date}</span>
-            </div>
-            ${oldTitleHtml}
-            <a href="${item.url}" target="_blank" class="link-btn" onclick="event.stopPropagation()">Open ↗</a>
-          </div>
-        `}).join('')}
-      </div>
-    `;
+    const card = document.createElement("div");
+    card.className = "chapter-card";
+    card.setAttribute("data-chapter-name", chapterName);
+    card.innerHTML = `<div class="chapter-header"><span class="chapter-icon">${icon}</span><div class="chapter-info"><h3><span id="title-${chapterName}">${chapterName}</span>${connectionBadge}<button class="edit-btn" onclick="startEditChapter('${chapterName}')" title="Rename Chapter">✏️</button></h3><span class="badge">${type}</span><span class="count">${items.length} items</span>${actionButton}</div></div><div class="items-list">${items.map((item, index) => {
+      let extraClass = "";
+      let notesIndicator = "";
+      let longPressAttrs = "";
+      if (isVideo) {
+        const hasLink = hasLinkedNote(chapterName, item.key);
+        if (hasLink) {
+          extraClass = "notes-paired";
+          notesIndicator = `<span style="font-size:10px;color:#22c55e;margin-left:6px;">📄 linked</span>`;
+        } else if (skippedChapters.includes(chapterName)) {
+          extraClass = "notes-skipped";
+        } else {
+          extraClass = "notes-waiting";
+        }
+        longPressAttrs = `onmousedown="startLongPress(this, '${chapterName}', '${item.key}')" ontouchstart="startLongPress(this, '${chapterName}', '${item.key}')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()"`;
+      } else {
+        extraClass = "notes-item-row";
+      }
+      const oldTitleHtml = (item.originalTitle && item.originalTitle !== item.title) ? `<div class="old-title-box"><span class="old-label">OLD title:</span><span class="old-text">${item.originalTitle}</span></div>` : "";
+      const deleteBtnHtml = `<button class="delete-btn" onclick="openDeleteModal('${chapterName}', '${item.key}', event)" title="Delete ${isVideo ? "Video" : "Note"}">🗑️</button>`;
+      return `<div class="item-row ${isVideo ? "video-item" : ""} ${extraClass}" data-chapter="${chapterName}" data-key="${item.key}" data-index="${index}" ${longPressAttrs}>${deleteBtnHtml}${isVideo && item.thumbnail ? `<div class="item-thumbnail-wrap"><img class="item-thumbnail" src="${proxyImage(item.thumbnail)}" alt="${item.title || "Video"}" data-thumb-fallback referrerpolicy="no-referrer"><div class="play-overlay">&#9654;</div></div>` : ""}<div class="item-body"><div class="item-title">${item.title}${notesIndicator}</div><div class="item-meta"><span class="subject">${item.subject}</span><span class="date">${item.date}</span></div>${oldTitleHtml}<a href="${item.url}" target="_blank" class="link-btn" onclick="event.stopPropagation()">Open ↗</a></div></div>`;
+    }).join("")}</div>`;
     container.appendChild(card);
   });
+  document.querySelectorAll("[data-thumb-fallback]").forEach(function(img) {
+    img.crossOrigin = "anonymous";
+    img.referrerPolicy = "no-referrer";
+    img.onerror = function() { 
+      // Try proxy if direct fails
+      if (!this.src.includes("images.weserv.nl") && this.dataset.originalSrc) {
+        this.src = proxyImage(this.dataset.originalSrc);
+      } else {
+        this.parentElement.style.display = "none"; 
+      }
+    };
+  });
+  renderSidebarNotes();
 }
-
-// ====== DELETE FUNCTIONS ======
 
 function openDeleteModal(chapterName, itemKey, event) {
   if (event) event.stopPropagation();
-
   const item = chaptersData[chapterName] && chaptersData[chapterName][itemKey];
   if (!item) return;
-
   pendingDelete = { chapter: chapterName, key: itemKey, item: item };
-
-  document.getElementById('deleteVideoTitle').textContent = item.title || 'Untitled Video';
-  document.getElementById('deleteModal').style.display = 'flex';
+  document.getElementById("deleteVideoTitle").textContent = item.title || "Untitled Video";
+  document.getElementById("deleteModal").style.display = "flex";
 }
 
 function closeDeleteModal() {
-  document.getElementById('deleteModal').style.display = 'none';
+  document.getElementById("deleteModal").style.display = "none";
   pendingDelete = null;
 }
 
 async function confirmDelete() {
-  if (!pendingDelete) {
-    closeDeleteModal();
-    return;
-  }
-
+  if (!pendingDelete) { closeDeleteModal(); return; }
   const { chapter, key, item } = pendingDelete;
-
   try {
-    // Check if this video has a linked note - if yes, delete that too
     const linkedNote = getLinkedNote(chapter, key);
-
-    // Check if this is the last item in the chapter
     const chapterItems = Object.keys(chaptersData[chapter] || {});
     const isLastItem = chapterItems.length === 1 && chapterItems[0] === key;
-
     if (isLastItem) {
-      // ✅ Keep chapter alive by setting empty object instead of DELETE
-      await fetch(`${FIREBASE_URL}/${chapter}.json`, {
-        method: 'PUT',
-        body: JSON.stringify({})
-      });
-      if (chaptersData[chapter]) {
-        chaptersData[chapter] = {};
-      }
+      await fetch(FIREBASE_URL + "/" + chapter + ".json", { method: "PUT", body: JSON.stringify({}) });
+      if (chaptersData[chapter]) chaptersData[chapter] = {};
     } else {
-      // Normal item deletion
-      await fetch(`${FIREBASE_URL}/${chapter}/${key}.json`, {
-        method: 'DELETE'
-      });
-      if (chaptersData[chapter]) {
-        delete chaptersData[chapter][key];
-      }
+      await fetch(FIREBASE_URL + "/" + chapter + "/" + key + ".json", { method: "DELETE" });
+      if (chaptersData[chapter]) delete chaptersData[chapter][key];
     }
-
-    // If linked note exists, delete it too
     if (linkedNote) {
       const notesChapter = linkedNote.sourceNotesChapter;
       const noteItems = Object.keys(chaptersData[notesChapter] || {});
       const isLastNote = noteItems.length === 1 && noteItems[0] === linkedNote.noteKey;
-
       if (isLastNote) {
-        // ✅ Keep notes chapter alive
-        await fetch(`${FIREBASE_URL}/${notesChapter}.json`, {
-          method: 'PUT',
-          body: JSON.stringify({})
-        });
-        if (chaptersData[notesChapter]) {
-          chaptersData[notesChapter] = {};
-        }
+        await fetch(FIREBASE_URL + "/" + notesChapter + ".json", { method: "PUT", body: JSON.stringify({}) });
+        if (chaptersData[notesChapter]) chaptersData[notesChapter] = {};
       } else {
-        await fetch(`${FIREBASE_URL}/${notesChapter}/${linkedNote.noteKey}.json`, {
-          method: 'DELETE'
-        });
-        if (chaptersData[notesChapter]) {
-          delete chaptersData[notesChapter][linkedNote.noteKey];
-        }
+        await fetch(FIREBASE_URL + "/" + notesChapter + "/" + linkedNote.noteKey + ".json", { method: "DELETE" });
+        if (chaptersData[notesChapter]) delete chaptersData[notesChapter][linkedNote.noteKey];
       }
     }
-
     renderChapters();
     showToast(`🗑️ "${item.title}" deleted successfully`, "success");
-
   } catch (e) {
     console.error(e);
     showToast("❌ Failed to delete video", "error");
@@ -1335,245 +850,159 @@ async function confirmDelete() {
   }
 }
 
-// ====== NOTES VIEW FUNCTIONS ======
-
 function openNotesModal(videoChapterName) {
-  const modal = document.getElementById('notesModal');
-  const list = document.getElementById('notesList');
-  const subtitle = document.getElementById('notesModalSubtitle');
-
+  const modal = document.getElementById("notesModal");
+  const list = document.getElementById("notesList");
+  const subtitle = document.getElementById("notesModalSubtitle");
   const notesChapterName = getNotesChapterName(videoChapterName);
   subtitle.textContent = notesChapterName || videoChapterName;
-
   if (!notesChapterName || !chaptersData[notesChapterName]) {
-    list.innerHTML = `
-      <div class="notes-empty">
-        <div class="icon">📭</div>
-        <div class="title">No Notes Found</div>
-        <div class="desc">No notes available for this chapter yet.</div>
-      </div>
-    `;
-    modal.style.display = 'flex';
+    list.innerHTML = `<div class="notes-empty"><div class="icon">📭</div><div class="title">No Notes Found</div><div class="desc">No notes available for this chapter yet.</div></div>`;
+    modal.style.display = "flex";
     return;
   }
-
-  const notesItems = Object.entries(chaptersData[notesChapterName] || {}).map(([key, item]) => ({
-    key, ...item
-  }));
-
+  const notesItems = Object.entries(chaptersData[notesChapterName] || {}).map(([key, item]) => ({ key, ...item }));
   if (notesItems.length === 0) {
-    list.innerHTML = `
-      <div class="notes-empty">
-        <div class="icon">📭</div>
-        <div class="title">No Notes Items</div>
-        <div class="desc">Notes chapter exists but has no items.</div>
-      </div>
-    `;
-    modal.style.display = 'flex';
+    list.innerHTML = `<div class="notes-empty"><div class="icon">📭</div><div class="title">No Notes Items</div><div class="desc">Notes chapter exists but has no items.</div></div>`;
+    modal.style.display = "flex";
     return;
   }
-
-  list.innerHTML = notesItems.map((item, index) => `
-    <div class="notes-item">
-      <div class="num-badge">${index + 1}</div>
-      <div class="content">
-        <div class="title">${item.title || 'Untitled'}</div>
-        <div class="meta">
-          <span class="subject">${item.subject || 'General'}</span>
-          <span class="date">${item.date || 'No date'}</span>
-        </div>
-      </div>
-      <a href="${item.url}" target="_blank" class="open-btn">Open ↗</a>
-    </div>
-  `).join('');
-
-  modal.style.display = 'flex';
+  list.innerHTML = notesItems.map((item, index) => `<div class="notes-item"><div class="num-badge">${index + 1}</div><div class="content"><div class="title">${item.title || "Untitled"}</div><div class="meta"><span class="subject">${item.subject || "General"}</span><span class="date">${item.date || "No date"}</span></div></div><a href="${item.url}" target="_blank" class="open-btn">Open ↗</a></div>`).join("");
+  modal.style.display = "flex";
 }
 
 function closeNotesModal() {
-  document.getElementById('notesModal').style.display = 'none';
+  document.getElementById("notesModal").style.display = "none";
 }
 
 function startEditChapter(oldName) {
   const titleSpan = document.getElementById(`title-${oldName}`);
   const currentName = titleSpan.textContent;
-
-  const input = document.createElement('input');
-  input.type = 'text';
+  const input = document.createElement("input");
+  input.type = "text";
   input.value = currentName;
-  input.className = 'chapter-name-input';
-
+  input.className = "chapter-name-input";
   titleSpan.parentNode.replaceChild(input, titleSpan);
   input.focus();
   input.select();
-
   function save() {
     const newName = input.value.trim();
     if (newName && newName !== oldName) {
       renameChapter(oldName, newName);
     } else {
-      const span = document.createElement('span');
+      const span = document.createElement("span");
       span.id = `title-${oldName}`;
       span.textContent = oldName;
       input.parentNode.replaceChild(span, input);
       const h3 = span.parentNode;
-      if (!h3.querySelector('.edit-btn')) {
-        const btn = document.createElement('button');
-        btn.className = 'edit-btn';
-        btn.innerHTML = '✏️';
-        btn.title = 'Rename Chapter';
+      if (!h3.querySelector(".edit-btn")) {
+        const btn = document.createElement("button");
+        btn.className = "edit-btn";
+        btn.innerHTML = "✏️";
+        btn.title = "Rename Chapter";
         btn.onclick = () => startEditChapter(oldName);
         h3.appendChild(btn);
       }
     }
   }
-
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      save();
-    } else if (e.key === 'Escape') {
-      input.value = oldName;
-      save();
-    }
-  });
-
-  input.addEventListener('blur', save);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); else if (e.key === "Escape") { input.value = oldName; save(); } });
+  input.addEventListener("blur", save);
 }
 
 function getBaseName(chapterName) {
-  return chapterName
-    .replace(/\s*video\s*$/i, '')
-    .replace(/\s*notes\s*$/i, '')
-    .replace(/\s*dpp\s*$/i, '')
-    .replace(/\s*practice\s*$/i, '')
-    .trim();
+  return chapterName.replace(/\s*video\s*$/i, "").replace(/\s*notes\s*$/i, "").replace(/\s*dpp\s*$/i, "").replace(/\s*practice\s*$/i, "").trim();
 }
 
 function generateTitle(baseName, index, isVideo, isNotes) {
-  const num = String(index).padStart(2, '0');
-  if (isVideo) {
-    return `${baseName} ${num}`;
-  } else if (isNotes) {
-    return `${baseName} ${num} Class Notes`;
-  }
+  const num = String(index).padStart(2, "0");
+  if (isVideo) return `${baseName} ${num}`;
+  else if (isNotes) return `${baseName} ${num} Class Notes`;
   return `${baseName} ${num}`;
 }
 
 async function renameChapter(oldName, newName) {
   try {
-    const isVideo = oldName.includes('video');
-    const isNotes = oldName.includes('notes');
-    const newIsVideo = newName.includes('video');
-    const newIsNotes = newName.includes('notes');
-
+    const isVideo = oldName.includes("video");
+    const isNotes = oldName.includes("notes");
+    const newIsVideo = newName.includes("video");
+    const newIsNotes = newName.includes("notes");
     const baseName = getBaseName(newName);
-
     const updatedData = {};
     const items = chaptersData[oldName];
     let index = 1;
-
     Object.entries(items).forEach(([key, item]) => {
       const newTitle = generateTitle(baseName, index, newIsVideo, newIsNotes);
-      updatedData[key] = {
-        ...item,
-        title: newTitle
-      };
+      updatedData[key] = { ...item, title: newTitle };
       index++;
     });
-
-    await fetch(`${FIREBASE_URL}/${newName}.json`, {
-      method: 'PUT',
-      body: JSON.stringify(updatedData)
-    });
-
-    await fetch(`${FIREBASE_URL}/${oldName}.json`, {
-      method: 'DELETE'
-    });
-
+    await fetch(FIREBASE_URL + "/" + newName + ".json", { method: "PUT", body: JSON.stringify(updatedData) });
+    await fetch(FIREBASE_URL + "/" + oldName + ".json", { method: "DELETE" });
     chaptersData[newName] = updatedData;
     delete chaptersData[oldName];
-
     renderChapters();
     showToast(`✅ Chapter renamed & titles updated!`, "success");
-
   } catch (e) {
     showToast("❌ Failed to rename chapter", "error");
   }
 }
 
 function startLongPress(el, chapter, key) {
-  if (!chapter.includes('video')) return;
-
-  el.classList.add('pressing');
+  if (!chapter.includes("video")) return;
+  el.classList.add("pressing");
   selectedVideo = chaptersData[chapter][key];
   selectedSourceChapter = chapter;
   selectedVideoKey = key;
-
   longPressTimer = setTimeout(() => {
-    el.classList.remove('pressing');
-    el.classList.add('pressed');
-    setTimeout(() => el.classList.remove('pressed'), 300);
+    el.classList.remove("pressing");
+    el.classList.add("pressed");
+    setTimeout(() => el.classList.remove("pressed"), 300);
     openMoveModal(chapter, key);
   }, 800);
 }
 
 function cancelLongPress() {
   clearTimeout(longPressTimer);
-  document.querySelectorAll('.pressing').forEach(el => el.classList.remove('pressing'));
+  document.querySelectorAll(".pressing").forEach(el => el.classList.remove("pressing"));
 }
 
 function openMoveModal(sourceChapter, videoKey) {
-  const modal = document.getElementById('moveModal');
-  const list = document.getElementById('chapterList');
-  const infoBox = document.getElementById('selectedVideoInfo');
-  const titleEl = document.getElementById('selectedVideoTitle');
-  const sourceInfoBox = document.getElementById('selectedVideoSourceInfo');
-  const sourceText = document.getElementById('sourceText');
-  const originalInfoBox = document.getElementById('selectedVideoOriginalInfo');
-  const originalText = document.getElementById('originalText');
-
+  const modal = document.getElementById("moveModal");
+  const list = document.getElementById("chapterList");
+  const infoBox = document.getElementById("selectedVideoInfo");
+  const titleEl = document.getElementById("selectedVideoTitle");
+  const sourceInfoBox = document.getElementById("selectedVideoSourceInfo");
+  const sourceText = document.getElementById("sourceText");
+  const originalInfoBox = document.getElementById("selectedVideoOriginalInfo");
+  const originalText = document.getElementById("originalText");
   if (selectedVideo && selectedVideo.title) {
     titleEl.textContent = selectedVideo.title;
-
-    const currentSourceName = getBaseName(selectedSourceChapter);
-    sourceText.textContent = currentSourceName;
-    sourceInfoBox.style.display = 'flex';
-
+    sourceText.textContent = getBaseName(selectedSourceChapter);
+    sourceInfoBox.style.display = "flex";
     const originalTitle = selectedVideo.originalTitle || selectedVideo.title;
     if (originalTitle && originalTitle !== selectedVideo.title) {
       originalText.innerHTML = `<span style="color:#f87171;">${originalTitle}</span>`;
-      originalInfoBox.style.display = 'flex';
+      originalInfoBox.style.display = "flex";
     } else {
       originalText.textContent = originalTitle;
-      originalInfoBox.style.display = 'flex';
+      originalInfoBox.style.display = "flex";
     }
-
-    infoBox.style.display = 'block';
+    infoBox.style.display = "block";
   } else {
-    infoBox.style.display = 'none';
+    infoBox.style.display = "none";
   }
-
-  const allChapters = Object.keys(chaptersData || {}).filter(c => c !== sourceChapter && c.includes('video'));
-
+  const allChapters = Object.keys(chaptersData || {}).filter(c => c !== sourceChapter && c.includes("video"));
   list.innerHTML = allChapters.map(ch => {
-    const isVideo = ch.includes('video');
-    const icon = isVideo ? '🎬' : '📁';
+    const isVideo = ch.includes("video");
+    const icon = isVideo ? "🎬" : "📁";
     const itemCount = Object.keys(chaptersData[ch] || {}).length;
-    return `
-      <div class="chapter-option" onclick="moveVideo('${sourceChapter}', '${videoKey}', '${ch}')">
-        <span class="opt-icon">${icon}</span>
-        <span class="opt-name">${ch}</span>
-        <span class="opt-count">${itemCount} videos</span>
-      </div>
-    `;
-  }).join('');
-
-  modal.style.display = 'flex';
+    return `<div class="chapter-option" onclick="moveVideo('${sourceChapter}', '${videoKey}', '${ch}')"><span class="opt-icon">${icon}</span><span class="opt-name">${ch}</span><span class="opt-count">${itemCount} videos</span></div>`;
+  }).join("");
+  modal.style.display = "flex";
 }
 
 function closeModal() {
-  document.getElementById('moveModal').style.display = 'none';
-  document.getElementById('selectedVideoInfo').style.display = 'none';
+  document.getElementById("moveModal").style.display = "none";
+  document.getElementById("selectedVideoInfo").style.display = "none";
   selectedVideo = null;
   selectedSourceChapter = null;
   selectedVideoKey = null;
@@ -1582,166 +1011,85 @@ function closeModal() {
 function getMatchingNotesChapter(videoChapterName) {
   const baseName = getBaseName(videoChapterName);
   const allChapters = Object.keys(chaptersData || {});
-  return allChapters.find(ch => 
-    ch.includes('notes') && getBaseName(ch).toLowerCase() === baseName.toLowerCase()
-  );
+  return allChapters.find(ch => ch.includes("notes") && getBaseName(ch).toLowerCase() === baseName.toLowerCase());
 }
 
-// ====== FIX: Generate truly unique key that never conflicts ======
 function generateUniqueKey(chapterName, prefix) {
   const existingKeys = Object.keys(chaptersData[chapterName] || {});
   let maxNum = 0;
-
   existingKeys.forEach(key => {
-    const match = key.match(new RegExp(`^${prefix}\s*(\d+)$`, 'i'));
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if (num > maxNum) maxNum = num;
-    }
+    const match = key.match(new RegExp(`^${prefix}\s*(\d+)$`, "i"));
+    if (match) { const num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
   });
-
   return `${prefix} ${maxNum + 1}`;
 }
 
-// ====== FIX: Check if key already exists in destination ======
 function keyExists(chapterName, key) {
   return chaptersData[chapterName] && chaptersData[chapterName][key] !== undefined;
 }
 
 async function moveVideo(fromChapter, videoKey, toChapter) {
   const video = chaptersData[fromChapter] && chaptersData[fromChapter][videoKey];
-  if (!video) {
-    showToast("❌ Video not found in source chapter", "error");
-    return;
-  }
-
+  if (!video) { showToast("❌ Video not found in source chapter", "error"); return; }
   closeModal();
-
   try {
-    // ====== STEP 1: FIND THE LINKED NOTE BEFORE ANYTHING ELSE ======
     const linkedNote = getLinkedNote(fromChapter, videoKey);
-
-    // ====== STEP 2: SAVE ORIGINAL TITLE (only if not already saved) ======
     const originalTitle = video.originalTitle || video.title;
-
-    // ====== STEP 3: GENERATE UNIQUE KEY FOR DESTINATION ======
     const destBaseName = getBaseName(toChapter);
-    const isDestVideo = toChapter.includes('video');
-
-    const prefix = isDestVideo ? 'video' : 'item';
+    const isDestVideo = toChapter.includes("video");
+    const prefix = isDestVideo ? "video" : "item";
     let newVideoKey = generateUniqueKey(toChapter, prefix);
-
-    // DOUBLE CHECK: If key somehow still exists, keep incrementing
     while (keyExists(toChapter, newVideoKey)) {
       const numMatch = newVideoKey.match(/\d+/);
       const num = numMatch ? parseInt(numMatch[0], 10) : 1;
       newVideoKey = `${prefix} ${num + 1}`;
     }
-
-    // Generate title based on the new key number
     const keyNumMatch = newVideoKey.match(/\d+/);
     const keyNum = keyNumMatch ? parseInt(keyNumMatch[0], 10) : 1;
     const newTitle = generateTitle(destBaseName, keyNum, isDestVideo, false);
-
-    // Store original title permanently - never overwrite if already exists
-    const updatedVideo = {
-      ...video,
-      title: newTitle,
-      originalTitle: originalTitle
-    };
-
-    // ====== STEP 4: ADD TO DESTINATION FIRST (using PATCH to be safe) ======
+    const updatedVideo = { ...video, title: newTitle, originalTitle: originalTitle };
     const patchBody = {};
     patchBody[newVideoKey] = updatedVideo;
-
-    await fetch(`${FIREBASE_URL}/${toChapter}.json`, {
-      method: 'PATCH',
-      body: JSON.stringify(patchBody)
-    });
-
-    // Update local state for destination
+    await fetch(FIREBASE_URL + "/" + toChapter + ".json", { method: "PATCH", body: JSON.stringify(patchBody) });
     if (!chaptersData[toChapter]) chaptersData[toChapter] = {};
     chaptersData[toChapter][newVideoKey] = updatedVideo;
-
-    // ====== STEP 5: DELETE FROM SOURCE (only after successful add) ======
     const sourceVideoItems = Object.keys(chaptersData[fromChapter] || {});
     const isLastSourceVideo = sourceVideoItems.length === 1 && sourceVideoItems[0] === videoKey;
-
     if (isLastSourceVideo) {
-      // ✅ Keep source chapter alive
-      await fetch(`${FIREBASE_URL}/${fromChapter}.json`, {
-        method: 'PUT',
-        body: JSON.stringify({})
-      });
+      await fetch(FIREBASE_URL + "/" + fromChapter + ".json", { method: "PUT", body: JSON.stringify({}) });
       chaptersData[fromChapter] = {};
     } else {
-      await fetch(`${FIREBASE_URL}/${fromChapter}/${videoKey}.json`, {
-        method: 'DELETE'
-      });
+      await fetch(FIREBASE_URL + "/" + fromChapter + "/" + videoKey + ".json", { method: "DELETE" });
       delete chaptersData[fromChapter][videoKey];
     }
-
-    // ====== STEP 6: MOVE THE LINKED NOTE (if exists) ======
     let notesMoved = false;
-
     if (linkedNote && linkedNote.noteData) {
       const destNotesChapter = getMatchingNotesChapter(toChapter);
-
       if (destNotesChapter) {
-        // Generate unique key for note
-        let newNoteKey = generateUniqueKey(destNotesChapter, 'notes');
-
-        // DOUBLE CHECK for notes too
+        let newNoteKey = generateUniqueKey(destNotesChapter, "notes");
         while (keyExists(destNotesChapter, newNoteKey)) {
           const numMatch = newNoteKey.match(/\d+/);
           const num = numMatch ? parseInt(numMatch[0], 10) : 1;
           newNoteKey = `notes ${num + 1}`;
         }
-
         const noteKeyNumMatch = newNoteKey.match(/\d+/);
         const noteKeyNum = noteKeyNumMatch ? parseInt(noteKeyNumMatch[0], 10) : 1;
-
         const destNotesBaseName = getBaseName(destNotesChapter);
         const newNoteTitle = generateTitle(destNotesBaseName, noteKeyNum, false, true);
-
-        const updatedNote = {
-          ...linkedNote.noteData,
-          title: newNoteTitle
-        };
-
-        // Add note to destination using PATCH
+        const updatedNote = { ...linkedNote.noteData, title: newNoteTitle };
         const notePatchBody = {};
         notePatchBody[newNoteKey] = updatedNote;
-
-        await fetch(`${FIREBASE_URL}/${destNotesChapter}.json`, {
-          method: 'PATCH',
-          body: JSON.stringify(notePatchBody)
-        });
-
-        // Update local state for destination notes
+        await fetch(FIREBASE_URL + "/" + destNotesChapter + ".json", { method: "PATCH", body: JSON.stringify(notePatchBody) });
         if (!chaptersData[destNotesChapter]) chaptersData[destNotesChapter] = {};
         chaptersData[destNotesChapter][newNoteKey] = updatedNote;
-
-        // Delete note from source
-        await fetch(`${FIREBASE_URL}/${linkedNote.sourceNotesChapter}/${linkedNote.noteKey}.json`, {
-          method: 'DELETE'
-        });
-
-        // Update local state for source notes
+        await fetch(FIREBASE_URL + "/" + linkedNote.sourceNotesChapter + "/" + linkedNote.noteKey + ".json", { method: "DELETE" });
         delete chaptersData[linkedNote.sourceNotesChapter][linkedNote.noteKey];
-
         notesMoved = true;
       }
     }
-
     renderChapters();
-
-    if (notesMoved) {
-      showToast(`✅ Video & Linked Notes moved to "${toChapter}"`, "success");
-    } else {
-      showToast(`✅ Video moved to "${toChapter}" as "${newTitle}"`, "success");
-    }
-
+    if (notesMoved) showToast(`✅ Video & Linked Notes moved to "${toChapter}"`, "success");
+    else showToast(`✅ Video moved to "${toChapter}" as "${newTitle}"`, "success");
   } catch (e) {
     console.error(e);
     showToast("❌ Failed to move video: " + e.message, "error");
@@ -1749,140 +1097,486 @@ async function moveVideo(fromChapter, videoKey, toChapter) {
   }
 }
 
-// ✅ LIVE STATS FUNCTIONS
-let statsListener = null;
-let liveUsersListener = null;
+let statsPollInterval = null;
+let heartbeatPollInterval = null;
 
 function initLiveStats() {
-  if (!firebaseDb) {
-    console.log("Firebase not ready for stats");
-    return;
+  console.log("[Stats] Starting live stats...");
+  fetchActiveUsersREST();
+  fetchHeartbeatREST();
+  statsPollInterval = setInterval(fetchActiveUsersREST, 10000);
+  heartbeatPollInterval = setInterval(fetchHeartbeatREST, 30000);
+}
+
+async function fetchActiveUsersREST() {
+  try {
+    const url = FIREBASE_ACTIVE_USERS_URL + "/activeUsers.json";
+    console.log("[REST] Fetching:", url);
+    const res = await fetch(url, { referrerPolicy: "no-referrer" });
+    console.log("[REST] Status:", res.status, res.statusText);
+    if (!res.ok) {
+      console.error("[REST] HTTP error! Status:", res.status);
+      document.getElementById("liveText").textContent = "❌ HTTP " + res.status;
+      return;
+    }
+    const text = await res.text();
+    console.log("[REST] Raw text:", text.substring(0, 500));
+    let data;
+    try { data = JSON.parse(text); } catch (e) { console.error("[REST] JSON parse error:", e); return; }
+    console.log("[REST] Parsed data:", data);
+    if (data && typeof data === "object") {
+      const users = {};
+      for (const [key, val] of Object.entries(data)) {
+        if (key !== "heartbeatOnOff" && val && typeof val === "object" && val.lastSeen) {
+          users[key] = val;
+        }
+      }
+      console.log("[REST] Users found:", Object.keys(users).length);
+      updateLiveUsers(users);
+    } else {
+      console.log("[REST] No valid data");
+      updateLiveUsers({});
+    }
+  } catch (e) {
+    console.error("[REST] Fetch error:", e.name, e.message);
+    document.getElementById("liveText").textContent = "❌ Fetch failed";
   }
+}
 
-  // Listen to liveUsers
-  liveUsersListener = firebaseDb.ref('liveUsers').on('value', (snapshot) => {
-    const users = snapshot.val() || {};
-    updateLiveUsers(users);
-  });
+async function fetchHeartbeatREST() {
+  try {
+    const res = await fetch(FIREBASE_ACTIVE_USERS_URL + "/activeUsers/heartbeatOnOff.json", { referrerPolicy: "no-referrer" });
+    if (!res.ok) { console.log("[REST] Heartbeat HTTP error:", res.status); return; }
+    const status = await res.json();
+    console.log("[REST] Heartbeat status:", status);
+    updateHeartbeatStatus(status);
+  } catch (e) { console.error("[REST] Heartbeat fetch error:", e.message); }
+}
 
-  // Listen to stats
-  statsListener = firebaseDb.ref('stats').on('value', (snapshot) => {
-    const stats = snapshot.val() || {};
-    updateStats(stats);
+function updateHeartbeatStatus(status) {
+  const text = document.getElementById("liveText");
+  if (text) {
+    if (status === false) {
+      text.textContent = "🔴 Tracking PAUSED by admin";
+      text.style.color = "#ef4444";
+    } else {
+      text.style.color = "#94a3b8";
+    }
+  }
+  updateHeartbeatButton(status !== false);
+}
+
+window.heartbeatToggleClicked = function() {
+  console.log("[Heartbeat] === BUTTON CLICKED ===");
+  if (!firebaseDb2) {
+    console.error("[Heartbeat] firebaseDb2 not available");
+    showToast("❌ Secondary Firebase not connected", "error");
+    return false;
+  }
+  console.log("[Heartbeat] Fetching current status...");
+  firebaseDb2.ref("activeUsers/heartbeatOnOff").once("value").then(function(snapshot) {
+    var currentStatus = snapshot.val();
+    console.log("[Heartbeat] Current status:", currentStatus);
+    var newStatus = currentStatus === false ? true : false;
+    console.log("[Heartbeat] Setting to:", newStatus);
+    firebaseDb2.ref("activeUsers/heartbeatOnOff").set(newStatus).then(function() {
+      showToast(newStatus ? "✅ Tracking turned ON" : "🔴 Tracking turned OFF", "success");
+      console.log("[Admin] Heartbeat toggled to:", newStatus);
+      updateHeartbeatButton(newStatus);
+    }).catch(function(err) {
+      console.error("[Heartbeat] Set error:", err);
+      showToast("❌ Error: " + err.message, "error");
+    });
+  }).catch(function(err) {
+    console.error("[Heartbeat] Get error:", err);
+    showToast("❌ Error reading status: " + err.message, "error");
   });
+  return false;
+};
+
+function updateHeartbeatButton(isOn) {
+  var btn = document.getElementById("heartbeat-toggle-btn");
+  if (!btn) return;
+  if (isOn) {
+    btn.textContent = "🟢 ON";
+    btn.className = "heartbeat-btn on";
+  } else {
+    btn.textContent = "🔴 OFF";
+    btn.className = "heartbeat-btn off";
+  }
 }
 
 function updateLiveUsers(users) {
   const userList = Object.entries(users);
-  const now = Date.now();
-  const activeThreshold = 2 * 60 * 1000; // 2 minutes
-
-  // Filter active users (seen in last 2 minutes)
-  const activeUsers = userList.filter(([id, data]) => {
-    return (now - data.lastSeen) < activeThreshold;
-  });
-
-  // Update counters
-  document.getElementById('onlineUsers').textContent = activeUsers.length;
-
-  // Update device count
-  const devices = new Set(activeUsers.map(([id, data]) => data.device));
-  document.getElementById('deviceCount').textContent = devices.size;
-
-  // Update live indicator
-  const dot = document.getElementById('liveDot');
-  const text = document.getElementById('liveText');
+  const uniqueUserIds = new Set();
+  userList.forEach(([id, data]) => { if (data && data.userId) uniqueUserIds.add(data.userId); });
+  const uniqueCount = uniqueUserIds.size;
+  const headerCount = document.getElementById("headerUserCount");
+  if (headerCount) headerCount.textContent = uniqueCount;
+  const activeUsers = userList.filter(([id, data]) => data && typeof data === "object" && data.userId);
+  document.getElementById("onlineUsers").textContent = uniqueCount;
+  document.getElementById("todayVisitors").textContent = uniqueCount;
+  document.getElementById("peakUsers").textContent = uniqueCount;
+  const devices = new Set(activeUsers.map(([id, data]) => data.device || "Unknown"));
+  document.getElementById("deviceCount").textContent = devices.size;
+  const dot = document.getElementById("liveDot");
+  const text = document.getElementById("liveText");
   if (activeUsers.length > 0) {
-    dot.classList.add('connected');
-    text.textContent = `${activeUsers.length} online now`;
+    dot.classList.add("connected");
+    text.textContent = activeUsers.length + " online now";
+    text.style.color = "#94a3b8";
   } else {
-    dot.classList.remove('connected');
-    text.textContent = 'No users online';
+    dot.classList.remove("connected");
+    text.textContent = "No users online";
+    text.style.color = "#94a3b8";
   }
-
-  // Update users list
-  const listContainer = document.getElementById('activeUsersList');
+  const listContainer = document.getElementById("activeUsersList");
   if (activeUsers.length === 0) {
-    listContainer.innerHTML = '<div style="color:#64748b;font-size:12px;text-align:center;padding:10px;">No active users</div>';
+    listContainer.innerHTML = "<div style=\"color:#64748b;font-size:12px;text-align:center;padding:10px;\">No active users</div>";
   } else {
     listContainer.innerHTML = activeUsers.map(([id, data]) => {
-      const timeAgo = getTimeAgo(data.lastSeen);
       const deviceIcon = getDeviceIcon(data.device);
-      return `
-        <div class="user-row">
-          <span class="user-device">${deviceIcon}</span>
-          <div class="user-info">
-            <div class="user-browser">${data.browser} on ${data.device}</div>
-            <div class="user-screen">${data.screen}</div>
-          </div>
-          <span class="user-time">${timeAgo}</span>
-        </div>
-      `;
-    }).join('');
+      const page = data.page || "Unknown";
+      const joined = data.joinedAt ? new Date(data.joinedAt).toLocaleString("en-IN") : "-";
+      return `<div class="user-row"><span class="user-device">${deviceIcon}</span><div class="user-info"><div class="user-browser">${data.browser || "Unknown"} on ${data.device || "Unknown"}</div><div class="user-screen">${data.screen || "Unknown"} | 📍 ${page}</div></div><span class="user-time">${joined}</span></div>`;
+    }).join("");
   }
+  renderSidebarNotes();
 }
 
-function updateStats(stats) {
-  // Get today's key (matches your format: "Wed_Jul_08_2026")
-  const today = new Date();
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const todayKey = `${days[today.getDay()]}_${months[today.getMonth()]}_${String(today.getDate()).padStart(2, '0')}_${today.getFullYear()}`;
-
-  const todayStats = stats[todayKey];
-
-  if (todayStats) {
-    const uniqueCount = todayStats.uniqueUsers ? Object.keys(todayStats.uniqueUsers).length : 0;
-    document.getElementById('todayVisitors').textContent = uniqueCount;
-    document.getElementById('peakUsers').textContent = todayStats.peakUsers || 0;
-  } else {
-    document.getElementById('todayVisitors').textContent = '0';
-    document.getElementById('peakUsers').textContent = '0';
-  }
+function updateStats(users) {
+  const count = users ? Object.keys(users).length : 0;
+  document.getElementById("todayVisitors").textContent = count;
+  document.getElementById("peakUsers").textContent = count;
 }
 
 function getTimeAgo(timestamp) {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return 'just now';
+  if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return minutes + "m ago";
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
+  return hours + "h ago";
 }
 
 function getDeviceIcon(device) {
-  const icons = {
-    'Desktop': '💻',
-    'Mobile': '📱',
-    'Tablet': '📲'
-  };
-  return icons[device] || '📱';
+  const icons = { "Desktop": "💻", "Mobile": "📱", "Tablet": "📲" };
+  return icons[device] || "📱";
 }
 
 function showToast(msg, type) {
-  const toast = document.getElementById('toast');
+  const toast = document.getElementById("toast");
   toast.textContent = msg;
-  toast.className = `toast ${type} show`;
-  setTimeout(() => toast.classList.remove('show'), 3000);
+  toast.className = "toast " + type + " show";
+  setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
 window.onclick = function(e) {
-  const modal = document.getElementById('moveModal');
-  const deleteModal = document.getElementById('deleteModal');
-  const notesModal = document.getElementById('notesModal');
+  const modal = document.getElementById("moveModal");
+  const deleteModal = document.getElementById("deleteModal");
+  const notesModal = document.getElementById("notesModal");
   if (e.target === modal) closeModal();
   if (e.target === deleteModal) closeDeleteModal();
   if (e.target === notesModal) closeNotesModal();
+};
+
+let LIVE_CLASSES = [];
+const DEFAULT_LIVE_CLASSES = [
+  { key: "physics-live", name: "Physics Live", defaultTime: "8:00 AM" },
+  { key: "chemistry-live", name: "Chemistry Live", defaultTime: "10:00 AM" },
+  { key: "biology-live", name: "Biology Live", defaultTime: "12:00 PM" }
+];
+
+let liveClassListeners = {};
+let deletedLiveClasses = new Set();
+
+function initLiveClassesManager() {
+  if (!firebaseDb) return;
+  firebaseDb.ref("liveClasses").on("value", (snapshot) => {
+    const data = snapshot.val() || {};
+    LIVE_CLASSES = [];
+    Object.keys(data).forEach(key => {
+      if (key === "heartbeatOnOff") return;
+      // Skip classes that were deleted in this session
+      if (deletedLiveClasses.has(key)) return;
+      const classData = data[key];
+      if (classData && typeof classData === "object") {
+        LIVE_CLASSES.push({ key: key, name: classData.name || key, defaultTime: classData.defaultTime || "9:00 AM" });
+      }
+    });
+    // Don't auto-create default classes anymore - let admin create them manually
+    LIVE_CLASSES.forEach(liveClass => {
+      // Remove old listener if exists
+      if (liveClassListeners[liveClass.key]) {
+        firebaseDb.ref("liveClasses/" + liveClass.key).off("value", liveClassListeners[liveClass.key]);
+      }
+      const listener = (snapshot) => {
+        // Don't render if this class was deleted
+        if (deletedLiveClasses.has(liveClass.key)) return;
+        renderLiveClass(liveClass, snapshot.val());
+      };
+      liveClassListeners[liveClass.key] = listener;
+      firebaseDb.ref("liveClasses/" + liveClass.key).on("value", listener);
+    });
+  });
 }
 
-// ✅ Firebase Realtime - WebSocket connection, live updates without repeated downloads!
+function renderLiveClass(config, data) {
+  const container = document.getElementById("liveClassesList");
+  if (!container) return;
+  let item = container.querySelector(`[data-live-key="${config.key}"]`);
+  if (!item) {
+    item = document.createElement("div");
+    item.className = "live-class-item upcoming";
+    item.setAttribute("data-live-key", config.key);
+    item.innerHTML = `<div class="live-class-header"><span class="live-class-name">${config.name}</span><span style="display:flex;align-items:center;gap:8px;"><span class="live-class-status upcoming" id="status-${config.key}">UPCOMING</span><button class="live-class-delete" onclick="deleteLiveClass('${config.key}')" title="Delete Class">🗑️</button></span></div><input type="text" class="live-class-input" id="url-${config.key}" placeholder="Video URL (empty = upcoming)" value=""><input type="text" class="live-class-input" id="thumb-${config.key}" placeholder="Thumbnail URL (optional)" value=""><input type="datetime-local" class="live-class-input" id="time-${config.key}" placeholder="Select date & time" value=""><div class="live-class-btns"><button class="live-class-btn start" onclick="startLiveClass('${config.key}')">▶ Start Live</button><button class="live-class-btn upcoming" onclick="markUpcoming('${config.key}')">📅 Upcoming</button><button class="live-class-btn end" onclick="endLiveClass('${config.key}')">⏹ End Class</button></div>`;
+    container.appendChild(item);
+  }
+  const urlInput = document.getElementById("url-" + config.key);
+  const thumbInput = document.getElementById("thumb-" + config.key);
+  const timeInput = document.getElementById("time-" + config.key);
+  const statusBadge = document.getElementById("status-" + config.key);
+  if (data) {
+    if (urlInput) urlInput.value = data.url || "";
+    if (thumbInput) thumbInput.value = data.thumbnail || "";
+    if (timeInput) {
+      // Convert stored time to datetime-local format if it's a valid date string
+      if (data.time) {
+        try {
+          const d = new Date(data.time);
+          if (!isNaN(d.getTime())) {
+            const pad = (n) => String(n).padStart(2, '0');
+            timeInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          } else {
+            timeInput.value = data.time;
+          }
+        } catch(e) { timeInput.value = data.time || ""; }
+      } else {
+        timeInput.value = "";
+      }
+    }
+    const hasUrl = data.url && String(data.url).trim().length > 5;
+    const hasTime = data.time && String(data.time).trim().length > 0;
+    const isEnded = data.ended === true;
+    const isUpcoming = data.ended === "none";
+    const isLive = data.ended === false;
+    item.classList.remove("upcoming", "live", "ended");
+    statusBadge.classList.remove("upcoming", "live", "ended");
+    if (isEnded) { 
+      item.classList.add("ended"); 
+      statusBadge.classList.add("ended"); 
+      statusBadge.textContent = "CLASS ENDED"; 
+    }
+    else if (isLive && hasUrl) { 
+      item.classList.add("live"); 
+      statusBadge.classList.add("live"); 
+      statusBadge.textContent = "LIVE NOW"; 
+    }
+    else if (isUpcoming || (!isEnded && !isLive)) { 
+      item.classList.add("upcoming"); 
+      statusBadge.classList.add("upcoming"); 
+      statusBadge.textContent = "UPCOMING"; 
+    }
+    else { 
+      item.classList.add("upcoming"); 
+      statusBadge.classList.add("upcoming"); 
+      statusBadge.textContent = "UPCOMING"; 
+    }
+  }
+}
+
+async function startLiveClass(key) {
+  const url = document.getElementById("url-" + key).value.trim();
+  const thumb = document.getElementById("thumb-" + key).value.trim();
+  const time = document.getElementById("time-" + key).value.trim();
+  if (!url) { showToast("❌ Please enter a video URL to start live", "error"); return; }
+  try {
+    await firebaseDb.ref("liveClasses/" + key).update({ url: url, thumbnail: thumb || "", time: time || "", ended: false });
+    showToast("✅ Live class started!", "success");
+  } catch (e) { showToast("❌ Failed to start live class", "error"); }
+}
+
+async function endLiveClass(key) {
+  try {
+    await firebaseDb.ref("liveClasses/" + key).update({ ended: true });
+    showToast("✅ Live class ended!", "success");
+  } catch (e) { showToast("❌ Failed to end live class", "error"); }
+}
+
+async function markUpcoming(key) {
+  const thumb = document.getElementById("thumb-" + key).value.trim();
+  const time = document.getElementById("time-" + key).value.trim();
+  if (!time) { showToast("❌ Please select date & time for upcoming class", "error"); return; }
+  try {
+    // Mark as upcoming: clear URL, set ended to "none"
+    const updates = { url: "", thumbnail: thumb || "", time: time, ended: "none" };
+    await firebaseDb.ref("liveClasses/" + key).update(updates);
+    showToast("✅ Class marked as Upcoming!", "success");
+  } catch (e) { 
+    console.error("markUpcoming error:", e);
+    showToast("❌ Failed to mark upcoming: " + e.message, "error"); 
+  }
+}
+
+async function updateLiveClass(key) {
+  const url = document.getElementById("url-" + key).value.trim();
+  const thumb = document.getElementById("thumb-" + key).value.trim();
+  const time = document.getElementById("time-" + key).value.trim();
+  try {
+    await firebaseDb.ref("liveClasses/" + key).update({ url: url, thumbnail: thumb || "", time: time || "" });
+    showToast("✅ Live class updated!", "success");
+  } catch (e) { showToast("❌ Failed to update live class", "error"); }
+}
+
+// FIXED: Template literals used instead of broken quotes
+let selectedSubjectName = "";
+
+function selectSubject(subject) {
+  selectedSubjectName = subject;
+  document.getElementById("subjectSelection").style.display = "none";
+  document.getElementById("classDetailsForm").style.display = "block";
+  document.getElementById("selectedSubjectDisplay").textContent = "📚 " + subject + " Live Class";
+  // Auto-set default time based on subject
+  const timeInput = document.getElementById("newLiveClassTime");
+  if (subject === "Physics") timeInput.value = "8:00 AM";
+  else if (subject === "Chemistry") timeInput.value = "10:00 AM";
+  else if (subject === "Biology") timeInput.value = "12:00 PM";
+}
+
+function backToSubjectSelection() {
+  selectedSubjectName = "";
+  document.getElementById("subjectSelection").style.display = "block";
+  document.getElementById("classDetailsForm").style.display = "none";
+  document.getElementById("newLiveClassTime").value = "";
+  document.getElementById("newLiveClassThumb").value = "";
+  document.getElementById("newLiveClassUrl").value = "";
+}
+
+async function addNewLiveClass() {
+  const time = document.getElementById("newLiveClassTime").value.trim();
+  const thumb = document.getElementById("newLiveClassThumb").value.trim();
+  const url = document.getElementById("newLiveClassUrl").value.trim();
+
+  if (!selectedSubjectName) { showToast("❌ Please select a subject first", "error"); return; }
+  if (!time) { showToast("❌ Date & Time is required", "error"); return; }
+
+  // Auto-generate unique key using timestamp
+  const timestamp = Date.now();
+  const key = selectedSubjectName.toLowerCase() + "-" + timestamp;
+  const name = selectedSubjectName + " Live";
+
+  try {
+    await firebaseDb.ref("liveClasses/" + key).set({ 
+      name: name, 
+      defaultTime: time, 
+      url: url || "", 
+      thumbnail: thumb || "", 
+      time: time, 
+      ended: "none",
+      subject: selectedSubjectName
+    });
+    // Reset form
+    backToSubjectSelection();
+    showToast(`✅ Live class "${name}" created!`, "success");
+  } catch (e) {
+    showToast(`❌ Failed to create live class: ${e.message}`, "error");
+  }
+}
+
+
+async function deleteLiveClass(key) {
+  if (!confirm("Are you sure you want to delete this live class? This cannot be undone.")) return;
+  try {
+    // Mark as deleted so listeners don't re-create it
+    deletedLiveClasses.add(key);
+    // Turn off Firebase listener for this class
+    if (liveClassListeners[key]) {
+      firebaseDb.ref("liveClasses/" + key).off("value", liveClassListeners[key]);
+      delete liveClassListeners[key];
+    }
+    // Remove from LIVE_CLASSES array
+    LIVE_CLASSES = LIVE_CLASSES.filter(c => c.key !== key);
+    // Remove from Firebase
+    await firebaseDb.ref("liveClasses/" + key).remove();
+    // Remove from DOM
+    const el = document.querySelector(`[data-live-key="${key}"]`);
+    if (el) el.remove();
+    showToast("✅ Live class deleted!", "success");
+  } catch (e) { 
+    console.error("Delete error:", e);
+    showToast("❌ Failed to delete live class", "error"); 
+  }
+}
+
+function initTestsManager() {
+  if (!firebaseDb) return;
+  firebaseDb.ref("tests").on("value", (snapshot) => { renderTests(snapshot.val()); });
+}
+
+function renderTests(data) {
+  const container = document.getElementById("testsList");
+  if (!container) return;
+  if (!data || Object.keys(data).length === 0 || (Object.keys(data).length === 1 && data.created)) {
+    container.innerHTML = "<div style=\"color:#64748b;font-size:13px;text-align:center;padding:20px;\">No tests available</div>";
+    return;
+  }
+  container.innerHTML = Object.entries(data).map(([key, test]) => {
+    if (key === "created" || !test) return "";
+    return `<div class="test-item"><div class="test-info"><div class="test-title">${test.title || "Untitled Test"}</div><div class="test-meta">${test.subject || "General"}${test.date ? " | " + test.date : ""}</div></div><a href="${test.url}" target="_blank" class="link-btn" style="position:static;transform:none;">Open ↗</a><button class="test-delete-btn" onclick="deleteTest('${key}')">🗑️</button></div>`;
+  }).join("");
+}
+
+async function addNewTest() {
+  const title = document.getElementById("newTestTitle").value.trim();
+  const url = document.getElementById("newTestUrl").value.trim();
+  const subject = document.getElementById("newTestSubject").value.trim();
+  const date = document.getElementById("newTestDate").value.trim();
+  if (!title || !url) { showToast("❌ Title and URL are required", "error"); return; }
+  try {
+    const newTestRef = firebaseDb.ref("tests").push();
+    await newTestRef.set({ title: title, url: url, subject: subject || "General", date: date || "" });
+    document.getElementById("newTestTitle").value = "";
+    document.getElementById("newTestUrl").value = "";
+    document.getElementById("newTestSubject").value = "";
+    document.getElementById("newTestDate").value = "";
+    showToast("✅ Test added successfully!", "success");
+  } catch (e) { showToast("❌ Failed to add test", "error"); }
+}
+
+async function deleteTest(key) {
+  if (!confirm("Are you sure you want to delete this test?")) return;
+  try {
+    await firebaseDb.ref("tests/" + key).remove();
+    showToast("✅ Test deleted!", "success");
+  } catch (e) { showToast("❌ Failed to delete test", "error"); }
+}
+
 initFirebaseRealtime();
-
-// ✅ Start Live Stats monitoring
 initLiveStats();
+initLiveClassesManager();
+initTestsManager();
 
-// Manual refresh button still works as backup
+window.testSecondaryFirebase = function() {
+  console.log("=== Secondary Firebase Test ===");
+  console.log("firebaseApp2 exists:", !!firebaseApp2);
+  console.log("firebaseDb2 exists:", !!firebaseDb2);
+  console.log("FIREBASE_ACTIVE_USERS_URL:", FIREBASE_ACTIVE_USERS_URL);
+  if (firebaseDb2) {
+    firebaseDb2.ref("/").once("value").then(snap => {
+      const rootData = snap.val();
+      console.log("Root data:", rootData);
+      const activeUsersData = rootData ? rootData.activeUsers : null;
+      console.log("activeUsers data:", activeUsersData);
+      alert("Secondary Firebase connected!\nRoot keys: " + JSON.stringify(rootData ? Object.keys(rootData) : "none") + "\nUsers: " + JSON.stringify(activeUsersData ? Object.keys(activeUsersData).filter(k => k !== "heartbeatOnOff") : "none"));
+    }).catch(err => {
+      console.error("Secondary Firebase error:", err);
+      alert("Secondary Firebase error: " + err.message);
+    });
+  } else {
+    console.error("firebaseDb2 is not initialized");
+    alert("firebaseDb2 is not initialized. Check console for details.");
+  }
+};
 </script>
-
 </body>
 </html>
